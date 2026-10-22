@@ -456,6 +456,14 @@ export const REMOTE_HOUSE: Omit<Facade, "badge"> = {
   ],
 };
 
+/** Placa "Encerrada" fincada na frente de toda vaga encerrada (cidade e Bairro Remoto). */
+export const PLACA_ENCERRADA: Part[] = [
+  box([0.14, 1.5, 0.14], [-0.8, 0.75, 0], WOOD_DARK),
+  box([0.14, 1.5, 0.14], [0.8, 0.75, 0], WOOD_DARK),
+  box([2.3, 0.75, 0.1], [0, 1.35, 0], WOOD),
+  { shape: "plane", size: [2.1, 0.6, 1], pos: [0, 1.35, 0.06], color: "#ffffff", label: { text: "ENCERRADA", background: "#8a1c14" } },
+];
+
 /** Decorative city houses (no job) — muted roofs so they don't read as the remote village. */
 export const FILLER_HOUSES: readonly Pick<Facade, "parts" | "footprint">[] = [
   { footprint: [5.8, 6.8], parts: house({ wall: "#f3e7d0", roof: "#8f9aa6", shutter: "#7f97a8" }) },

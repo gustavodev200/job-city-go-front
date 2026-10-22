@@ -2,31 +2,13 @@
 
 import { useMemo } from "react";
 import * as THREE from "three";
-import {
-  BRIDGE,
-  CITY_BLOCK_CENTERS,
-  CITY_BLOCK_SIZE,
-  CITY_HALF,
-  CITY_ROAD_LINES,
-  CITY_ROAD_WIDTH,
-  FOUNTAIN_RADIUS,
-  LOT_TOP,
-  PLAZA,
-  VILLAGE_BOUNDS,
-  VILLAGE_ROAD_WIDTH,
-  VILLAGE_ROAD_XS,
-  VILLAGE_ROAD_ZS,
-  groundHeight,
-} from "@/data/mapa";
+import { FONTE_RAIO as FOUNTAIN_RADIUS, LOT_TOP, QUARTEIRAO as CITY_BLOCK_SIZE, type Mundo, type Ponto } from "@/lib/cidade/mundo";
 import type { Instance, Part } from "./facades";
 import { InstancedParts } from "./Instanced";
-import { parkingLot } from "./layout";
+import { useMundo } from "./mundo";
 
 const ASPHALT_Y = 0.04;
 const DIRT = "#d9c39a";
-
-const BLOCKS = CITY_BLOCK_CENTERS.flatMap((x) => CITY_BLOCK_CENTERS.map((z) => ({ x, z })));
-const isPlaza = (b: { x: number; z: number }) => b.x === PLAZA.x && b.z === PLAZA.z;
 
 const PAINT = "#f4f1e8";
 const CURB = "#d3cab8";
@@ -51,21 +33,9 @@ const PARKING: Part[] = [
     [-3.2, 3.2].map((z): Part => ({ shape: "box", size: [0.12, 0.02, 4.4], pos: [x, LOT_TOP + 0.01, z], color: PAINT })),
   ),
 ];
-const isParking = (b: { x: number; z: number }) => parkingLot !== null && b.x === parkingLot.x && b.z === parkingLot.z;
-const sidewalkInstances: Instance[] = BLOCKS.map(({ x, z }) => ({ x, y: 0, z }));
-const lotInstances: Instance[] = BLOCKS.filter((b) => !isPlaza(b) && !isParking(b)).map(({ x, z }) => ({ x, y: 0, z }));
-const parkingInstances: Instance[] = parkingLot ? [{ x: parkingLot.x, y: 0, z: parkingLot.z }] : [];
 
 // Center dashes, only between intersections.
 const DASH: Part[] = [{ shape: "box", size: [1.8, 0.02, 0.22], pos: [0, ASPHALT_Y + 0.01, 0], color: PAINT }];
-const dashInstances: Instance[] = CITY_ROAD_LINES.flatMap((line) =>
-  CITY_BLOCK_CENTERS.flatMap((c) =>
-    [-4, 0, 4].flatMap((d) => [
-      { x: c + d, y: 0, z: line },
-      { x: line, y: 0, z: c + d, rotY: Math.PI / 2 },
-    ]),
-  ),
-);
 
 // Zebra crossings on every approach of the inner intersections.
 const CROSSWALK: Part[] = [-2.4, -1.2, 0, 1.2, 2.4].map((z) => ({
@@ -74,15 +44,6 @@ const CROSSWALK: Part[] = [-2.4, -1.2, 0, 1.2, 2.4].map((z) => ({
   pos: [0, ASPHALT_Y + 0.012, z],
   color: PAINT,
 }));
-const INNER_LINES = CITY_ROAD_LINES.slice(1, -1);
-const crosswalkInstances: Instance[] = INNER_LINES.flatMap((rx) =>
-  INNER_LINES.flatMap((rz) => [
-    { x: rx + 4.2, y: 0, z: rz },
-    { x: rx - 4.2, y: 0, z: rz },
-    { x: rx, y: 0, z: rz + 4.2, rotY: Math.PI / 2 },
-    { x: rx, y: 0, z: rz - 4.2, rotY: Math.PI / 2 },
-  ]),
-);
 
 // Street lights on the front corners of every block.
 const LAMP: Part[] = [
@@ -92,16 +53,6 @@ const LAMP: Part[] = [
   { shape: "cone", size: [0.6, 0.3, 0.6], pos: [-0.75, 4.25, 0], color: "#3e5a4a" },
   { shape: "sphere", size: [0.42, 0.42, 0.42], pos: [-0.75, 4.0, 0], color: "", glow: true },
 ];
-const lampInstances: Instance[] = BLOCKS.flatMap(({ x, z }) =>
-  [-1, 1].map((side) => ({ x: x + side * 6.5, y: 0.15, z: z + 6.5, rotY: side === -1 ? Math.PI : 0, lit: true })),
-);
-/** World position of each lamp bulb (night glow and street lights). */
-export const LAMP_HEADS = lampInstances.map(({ x, y, z, rotY = 0 }) => ({
-  x: x - 0.75 * Math.cos(rotY),
-  y: y + 4.0,
-  z: z + 0.75 * Math.sin(rotY),
-  groundY: y,
-}));
 
 // Benches and trash bins on the front sidewalk.
 const BENCH: Part[] = [
@@ -114,21 +65,80 @@ const BIN: Part[] = [
   { shape: "cylinder", size: [0.5, 0.85, 0.5], pos: [0, 0.425, 0], color: "#3e5a4a" },
   { shape: "cylinder", size: [0.58, 0.08, 0.58], pos: [0, 0.88, 0], color: "#2f463a" },
 ];
-const benchInstances: Instance[] = [
-  ...BLOCKS.filter((b) => !isPlaza(b)).map(({ x, z }) => ({ x: x - 3.6, y: 0.15, z: z + 6.6 })),
-  // Plaza benches facing the fountain.
-  ...[0, Math.PI / 2, Math.PI, -Math.PI / 2].map((angle) => ({
-    x: PLAZA.x + Math.sin(angle) * 5.3,
-    y: LOT_TOP,
-    z: PLAZA.z + Math.cos(angle) * 5.3,
-    rotY: angle + Math.PI,
-  })),
-];
-const binInstances: Instance[] = BLOCKS.map(({ x, z }) => ({ x: x - 5.4, y: 0.15, z: z + 6.6 }));
 
-function Plaza() {
+/** Lâmpada de um poste (posição no mundo), usada pela iluminação noturna. */
+export type Poste = { x: number; y: number; z: number; groundY: number };
+
+const mesmo = (a: Ponto | null, b: Ponto) => a !== null && a.x === b.x && a.z === b.z;
+
+/** Instâncias do mobiliário urbano da cidade, derivadas do mundo. */
+function ruasDaCidade(mundo: Mundo) {
+  const { centrosX, centrosZ, ruasX, ruasZ, praca, estacionamento } = mundo;
+  const blocks = centrosX.flatMap((x) => centrosZ.map((z) => ({ x, z })));
+  const isPlaza = (b: Ponto) => mesmo(praca, b);
+  const isParking = (b: Ponto) => mesmo(estacionamento, b);
+  const innerX = ruasX.slice(1, -1);
+  const innerZ = ruasZ.slice(1, -1);
+  return {
+    sidewalk: blocks.map(({ x, z }) => ({ x, y: 0, z })),
+    lot: blocks.filter((b) => !isPlaza(b) && !isParking(b)).map(({ x, z }) => ({ x, y: 0, z })),
+    parking: estacionamento ? [{ x: estacionamento.x, y: 0, z: estacionamento.z }] : [],
+    dash: [
+      ...ruasZ.flatMap((line) => centrosX.flatMap((c) => [-4, 0, 4].map((d) => ({ x: c + d, y: 0, z: line })))),
+      ...ruasX.flatMap((line) =>
+        centrosZ.flatMap((c) => [-4, 0, 4].map((d) => ({ x: line, y: 0, z: c + d, rotY: Math.PI / 2 }))),
+      ),
+    ],
+    crosswalk: innerX.flatMap((rx) =>
+      innerZ.flatMap((rz) => [
+        { x: rx + 4.2, y: 0, z: rz },
+        { x: rx - 4.2, y: 0, z: rz },
+        { x: rx, y: 0, z: rz + 4.2, rotY: Math.PI / 2 },
+        { x: rx, y: 0, z: rz - 4.2, rotY: Math.PI / 2 },
+      ]),
+    ),
+    lamp: blocks.flatMap(({ x, z }) =>
+      [-1, 1].map((side) => ({ x: x + side * 6.5, y: 0.15, z: z + 6.5, rotY: side === -1 ? Math.PI : 0, lit: true })),
+    ),
+    bench: [
+      ...blocks.filter((b) => !isPlaza(b)).map(({ x, z }) => ({ x: x - 3.6, y: 0.15, z: z + 6.6 })),
+      // Plaza benches facing the fountain.
+      ...(praca
+        ? [0, Math.PI / 2, Math.PI, -Math.PI / 2].map((angle) => ({
+            x: praca.x + Math.sin(angle) * 5.3,
+            y: LOT_TOP,
+            z: praca.z + Math.cos(angle) * 5.3,
+            rotY: angle + Math.PI,
+          }))
+        : []),
+    ],
+    bin: blocks.map(({ x, z }) => ({ x: x - 5.4, y: 0.15, z: z + 6.6 })),
+  } satisfies Record<string, Instance[]>;
+}
+
+const postesCache = new WeakMap<Mundo, Poste[]>();
+
+/** Lâmpadas dos postes (luz noturna); vazio no Bairro Remoto. */
+export function postesDoMundo(mundo: Mundo): Poste[] {
+  let postes = postesCache.get(mundo);
+  if (!postes) {
+    postes =
+      mundo.tipo === "cidade"
+        ? ruasDaCidade(mundo).lamp.map(({ x, y, z, rotY }) => ({
+            x: x - 0.75 * Math.cos(rotY),
+            y: y + 4.0,
+            z: z + 0.75 * Math.sin(rotY),
+            groundY: y,
+          }))
+        : [];
+    postesCache.set(mundo, postes);
+  }
+  return postes;
+}
+
+function Plaza({ praca }: { praca: Ponto }) {
   return (
-    <group position={[PLAZA.x, 0, PLAZA.z]}>
+    <group position={[praca.x, 0, praca.z]}>
       <mesh position={[0, 0.09, 0]} receiveShadow>
         <boxGeometry args={[CITY_BLOCK_SIZE - 1.6, LOT_TOP, CITY_BLOCK_SIZE - 1.6]} />
         <meshStandardMaterial color="#efe3c9" />
@@ -171,7 +181,7 @@ function Plaza() {
 }
 
 /** Faixa de terra que acompanha o relevo (ponte → vila). */
-function useSlopeRoadGeometry(x0: number, x1: number, z: number, width: number) {
+function useSlopeRoadGeometry(groundHeight: (x: number) => number, x0: number, x1: number, z: number, width: number) {
   return useMemo(() => {
     const steps = Math.ceil((x1 - x0) / 0.5);
     const positions: number[] = [];
@@ -190,31 +200,42 @@ function useSlopeRoadGeometry(x0: number, x1: number, z: number, width: number) 
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
     return geometry;
-  }, [x0, x1, z, width]);
+  }, [groundHeight, x0, x1, z, width]);
 }
 
-function VillageRoads() {
-  const slope = useSlopeRoadGeometry(BRIDGE.x1 - 0.5, VILLAGE_BOUNDS.minX + 2, 0, VILLAGE_ROAD_WIDTH);
-  const top = groundHeight(VILLAGE_BOUNDS.minX + 2);
-  const spanX = VILLAGE_BOUNDS.maxX - VILLAGE_BOUNDS.minX;
-  const spanZ = VILLAGE_BOUNDS.maxZ - VILLAGE_BOUNDS.minZ;
-  const centerX = (VILLAGE_BOUNDS.minX + VILLAGE_BOUNDS.maxX) / 2;
-  const centerZ = (VILLAGE_BOUNDS.minZ + VILLAGE_BOUNDS.maxZ) / 2;
+function VillageRoads({ mundo }: { mundo: Mundo }) {
+  const { ponte, urbano, ruasX, ruasZ, larguraRua, alturaDoChao, limites } = mundo;
+  const slope = useSlopeRoadGeometry(alturaDoChao, ponte.x1 - 0.5, urbano.minX + 2, 0, larguraRua);
+  const top = alturaDoChao(urbano.minX + 2);
+  const spanX = ruasX.at(-1)! - ruasX[0] + larguraRua;
+  const spanZ = ruasZ.at(-1)! - ruasZ[0] + larguraRua;
+  const centerX = (ruasX[0] + ruasX.at(-1)!) / 2;
+  const centerZ = (ruasZ[0] + ruasZ.at(-1)!) / 2;
+  const margemOeste = ponte.x0 - limites.minX;
 
   return (
     <group>
+      {/* Margem oeste: estradinha da ponte até o portal de volta. */}
+      <mesh
+        position={[limites.minX + margemOeste / 2, alturaDoChao(limites.minX) + 0.05, 0]}
+        rotation-x={-Math.PI / 2}
+        receiveShadow
+      >
+        <planeGeometry args={[margemOeste + 0.5, larguraRua]} />
+        <meshStandardMaterial color={DIRT} polygonOffset polygonOffsetFactor={-1} />
+      </mesh>
       <mesh geometry={slope} receiveShadow>
         <meshStandardMaterial color={DIRT} />
       </mesh>
-      {VILLAGE_ROAD_XS.map((x) => (
+      {ruasX.map((x) => (
         <mesh key={`x${x}`} position={[x, top + 0.03, centerZ]} rotation-x={-Math.PI / 2} receiveShadow>
-          <planeGeometry args={[VILLAGE_ROAD_WIDTH, spanZ]} />
+          <planeGeometry args={[larguraRua, spanZ]} />
           <meshStandardMaterial color={DIRT} polygonOffset polygonOffsetFactor={-1} />
         </mesh>
       ))}
-      {VILLAGE_ROAD_ZS.map((z) => (
+      {ruasZ.map((z) => (
         <mesh key={`z${z}`} position={[centerX, top + 0.04, z]} rotation-x={-Math.PI / 2} receiveShadow>
-          <planeGeometry args={[spanX, VILLAGE_ROAD_WIDTH]} />
+          <planeGeometry args={[spanX, larguraRua]} />
           <meshStandardMaterial color={DIRT} polygonOffset polygonOffsetFactor={-2} />
         </mesh>
       ))}
@@ -222,29 +243,42 @@ function VillageRoads() {
   );
 }
 
-export function Roads() {
-  const cityRoadLength = CITY_HALF * 2;
+function CityRoads({ mundo }: { mundo: Mundo }) {
+  const r = useMemo(() => ruasDaCidade(mundo), [mundo]);
+  const { urbano, ponte, limites, praca, larguraRua } = mundo;
   return (
     <>
-      <mesh position={[0, ASPHALT_Y, 0]} rotation-x={-Math.PI / 2} receiveShadow>
-        <planeGeometry args={[cityRoadLength, cityRoadLength]} />
+      <mesh
+        position={[(urbano.minX + urbano.maxX) / 2, ASPHALT_Y, (urbano.minZ + urbano.maxZ) / 2]}
+        rotation-x={-Math.PI / 2}
+        receiveShadow
+      >
+        <planeGeometry args={[urbano.maxX - urbano.minX, urbano.maxZ - urbano.minZ]} />
         <meshStandardMaterial color="#858a90" polygonOffset polygonOffsetFactor={-1} />
       </mesh>
-      {/* Avenida da cidade até a ponte */}
-      <mesh position={[(CITY_HALF + BRIDGE.x0) / 2, ASPHALT_Y, 0]} rotation-x={-Math.PI / 2} receiveShadow>
-        <planeGeometry args={[BRIDGE.x0 - CITY_HALF + 0.5, CITY_ROAD_WIDTH]} />
+      {/* Avenida da cidade até a ponte e, do outro lado, até o portal do Bairro Remoto. */}
+      <mesh position={[(urbano.maxX + ponte.x0) / 2, ASPHALT_Y, 0]} rotation-x={-Math.PI / 2} receiveShadow>
+        <planeGeometry args={[ponte.x0 - urbano.maxX + 0.5, larguraRua]} />
         <meshStandardMaterial color="#858a90" polygonOffset polygonOffsetFactor={-1} />
       </mesh>
-      <InstancedParts parts={SIDEWALK} instances={sidewalkInstances} />
-      <InstancedParts parts={LOT} instances={lotInstances} />
-      <InstancedParts parts={PARKING} instances={parkingInstances} />
-      <InstancedParts parts={DASH} instances={dashInstances} shadows={false} />
-      <InstancedParts parts={CROSSWALK} instances={crosswalkInstances} shadows={false} />
-      <InstancedParts parts={LAMP} instances={lampInstances} />
-      <InstancedParts parts={BENCH} instances={benchInstances} />
-      <InstancedParts parts={BIN} instances={binInstances} />
-      <Plaza />
-      <VillageRoads />
+      <mesh position={[(ponte.x1 + limites.maxX) / 2, ASPHALT_Y, 0]} rotation-x={-Math.PI / 2} receiveShadow>
+        <planeGeometry args={[limites.maxX - ponte.x1 + 0.5, larguraRua]} />
+        <meshStandardMaterial color="#858a90" polygonOffset polygonOffsetFactor={-1} />
+      </mesh>
+      <InstancedParts parts={SIDEWALK} instances={r.sidewalk} />
+      <InstancedParts parts={LOT} instances={r.lot} />
+      <InstancedParts parts={PARKING} instances={r.parking} />
+      <InstancedParts parts={DASH} instances={r.dash} shadows={false} />
+      <InstancedParts parts={CROSSWALK} instances={r.crosswalk} shadows={false} />
+      <InstancedParts parts={LAMP} instances={r.lamp} />
+      <InstancedParts parts={BENCH} instances={r.bench} />
+      <InstancedParts parts={BIN} instances={r.bin} />
+      {praca && <Plaza praca={praca} />}
     </>
   );
+}
+
+export function Roads() {
+  const mundo = useMundo();
+  return mundo.tipo === "cidade" ? <CityRoads mundo={mundo} /> : <VillageRoads mundo={mundo} />;
 }

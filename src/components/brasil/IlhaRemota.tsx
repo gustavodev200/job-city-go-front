@@ -9,6 +9,7 @@ import { cicloRuntime } from "@/components/city/ciclo";
 import { cidades } from "@/data/brasil/cidades";
 import { AGREGADO_REMOTO } from "@/lib/brasil/agregados";
 import { ALTURA_DEGRAU } from "@/lib/brasil/geo";
+import { hrefRemoto } from "@/lib/brasil/rotas";
 
 const LARGURA = 6;
 const PROFUNDIDADE = 4;
@@ -34,7 +35,7 @@ export function IlhaRemota() {
   useFrame(() => {
     LUZ.emissiveIntensity = THREE.MathUtils.lerp(0.3, 2.4, cicloRuntime.luzes);
   });
-  const ir = () => router.push("/remoto");
+  const ir = () => router.push(hrefRemoto());
   // Uma chamada de desenho para as três torres.
   const torres = useRef<THREE.InstancedMesh>(null);
   useLayoutEffect(() => {

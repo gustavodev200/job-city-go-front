@@ -1,3 +1,5 @@
+import type { Uf } from "./brasil/estados";
+
 // Fachada usada na cidade — cada categoria tem um prédio próprio (ver components/city/facades.ts).
 export type Categoria =
   | "comercio"
@@ -43,8 +45,8 @@ type VagaBase = {
   beneficios: string[];
   faixaSalarial: { min: number; max: number };
   status: Status;
-  x: number;
-  z: number;
+  /** Destaque patrocinado (spec 009): ativo até a data (AAAA-MM-DD, inclusive). */
+  destaque?: { ate: string };
 };
 
 export type VagaPresencial = VagaBase & {
@@ -61,10 +63,12 @@ export type VagaHibrida = VagaBase & {
   frequencia: string;
 };
 
+/** De onde a pessoa pode trabalhar numa vaga remota. */
+export type Abrangencia = { tipo: "brasil" } | { tipo: "ufs"; ufs: Uf[] } | { tipo: "fuso"; fuso: "brasilia" };
+
 export type VagaRemota = VagaBase & {
   modelo: "remoto";
-  /** Abrangência, ex.: "Brasil inteiro" ou "Remoto para GO". */
-  estado: string;
+  abrangencia: Abrangencia;
 };
 
 /** Vagas que ficam na cidade (presenciais e híbridas). */
@@ -73,8 +77,7 @@ export type VagaCidade = VagaPresencial | VagaHibrida;
 export type Vaga = VagaCidade | VagaRemota;
 
 // Dados fictícios — substituir pela API (NEXT_PUBLIC_API_URL) quando o backend existir.
-// Posições: vagas da cidade ficam no centro de um quarteirão (x/z ∈ ±10, ±30, ±50);
-// vagas remotas ficam nos quarteirões da vila (x ∈ 110..170, z ∈ -20..40). Ver data/mapa.ts.
+// A posição na cena vem do mundo gerado (src/lib/cidade/mundo.ts), não daqui.
 export const vagas: Vaga[] = [
   // ── Cidade ────────────────────────────────────────────────────────────
   {
@@ -90,8 +93,7 @@ export const vagas: Vaga[] = [
     cidade: "Goiânia",
     faixaSalarial: { min: 3500, max: 4800 },
     status: "aberta",
-    x: -30,
-    z: -50,
+    destaque: { ate: "2099-12-31" },
   },
   {
     id: "vg-002",
@@ -106,8 +108,6 @@ export const vagas: Vaga[] = [
     cidade: "Goiânia",
     faixaSalarial: { min: 2000, max: 3200 },
     status: "aberta",
-    x: -10,
-    z: -50,
   },
   {
     id: "vg-003",
@@ -122,8 +122,6 @@ export const vagas: Vaga[] = [
     cidade: "Aparecida de Goiânia",
     faixaSalarial: { min: 4500, max: 6500 },
     status: "aberta",
-    x: 10,
-    z: -50,
   },
   {
     id: "vg-004",
@@ -138,8 +136,6 @@ export const vagas: Vaga[] = [
     cidade: "Anápolis",
     faixaSalarial: { min: 2600, max: 3300 },
     status: "aberta",
-    x: 30,
-    z: -50,
   },
   {
     id: "vg-005",
@@ -154,8 +150,6 @@ export const vagas: Vaga[] = [
     cidade: "Goiânia",
     faixaSalarial: { min: 1800, max: 2200 },
     status: "aberta",
-    x: -50,
-    z: -30,
   },
   {
     id: "vg-006",
@@ -170,8 +164,6 @@ export const vagas: Vaga[] = [
     cidade: "Goiânia",
     faixaSalarial: { min: 1900, max: 2400 },
     status: "encerrada",
-    x: -30,
-    z: -30,
   },
   {
     id: "vg-007",
@@ -187,8 +179,6 @@ export const vagas: Vaga[] = [
     frequencia: "2 dias por semana no escritório",
     faixaSalarial: { min: 4200, max: 5800 },
     status: "aberta",
-    x: -10,
-    z: -30,
   },
   {
     id: "vg-008",
@@ -204,8 +194,6 @@ export const vagas: Vaga[] = [
     frequencia: "3 dias por semana na loja",
     faixaSalarial: { min: 4000, max: 5500 },
     status: "aberta",
-    x: 10,
-    z: -30,
   },
   {
     id: "vg-009",
@@ -220,8 +208,6 @@ export const vagas: Vaga[] = [
     cidade: "Goiânia",
     faixaSalarial: { min: 2200, max: 2900 },
     status: "aberta",
-    x: 30,
-    z: -30,
   },
   {
     id: "vg-010",
@@ -236,8 +222,6 @@ export const vagas: Vaga[] = [
     cidade: "Anápolis",
     faixaSalarial: { min: 1900, max: 2300 },
     status: "encerrada",
-    x: 50,
-    z: -30,
   },
   {
     id: "vg-011",
@@ -253,8 +237,6 @@ export const vagas: Vaga[] = [
     frequencia: "1 dia por semana na escola",
     faixaSalarial: { min: 5000, max: 6500 },
     status: "aberta",
-    x: -50,
-    z: -10,
   },
   {
     id: "vg-012",
@@ -269,8 +251,6 @@ export const vagas: Vaga[] = [
     cidade: "Aparecida de Goiânia",
     faixaSalarial: { min: 2800, max: 3500 },
     status: "aberta",
-    x: -30,
-    z: -10,
   },
   {
     id: "vg-013",
@@ -286,8 +266,6 @@ export const vagas: Vaga[] = [
     frequencia: "2 dias por semana no escritório",
     faixaSalarial: { min: 6000, max: 9000 },
     status: "aberta",
-    x: -10,
-    z: -10,
   },
   {
     id: "vg-014",
@@ -302,8 +280,6 @@ export const vagas: Vaga[] = [
     cidade: "Goiânia",
     faixaSalarial: { min: 2000, max: 3500 },
     status: "aberta",
-    x: 10,
-    z: -10,
   },
   {
     id: "vg-015",
@@ -318,8 +294,6 @@ export const vagas: Vaga[] = [
     cidade: "Aparecida de Goiânia",
     faixaSalarial: { min: 2500, max: 3200 },
     status: "aberta",
-    x: 30,
-    z: -10,
   },
   {
     id: "vg-016",
@@ -335,8 +309,6 @@ export const vagas: Vaga[] = [
     frequencia: "1 dia por semana no galpão",
     faixaSalarial: { min: 3800, max: 5000 },
     status: "aberta",
-    x: 50,
-    z: -10,
   },
   {
     id: "vg-017",
@@ -351,8 +323,6 @@ export const vagas: Vaga[] = [
     cidade: "Goiânia",
     faixaSalarial: { min: 2100, max: 2700 },
     status: "aberta",
-    x: -50,
-    z: 10,
   },
   {
     id: "vg-018",
@@ -367,8 +337,6 @@ export const vagas: Vaga[] = [
     cidade: "Goiânia",
     faixaSalarial: { min: 1900, max: 2300 },
     status: "encerrada",
-    x: -30,
-    z: 10,
   },
   {
     id: "vg-019",
@@ -384,8 +352,6 @@ export const vagas: Vaga[] = [
     frequencia: "2 dias por semana na clínica",
     faixaSalarial: { min: 3800, max: 5200 },
     status: "aberta",
-    x: 10,
-    z: 10,
   },
   {
     id: "vg-020",
@@ -400,8 +366,6 @@ export const vagas: Vaga[] = [
     cidade: "Trindade",
     faixaSalarial: { min: 1800, max: 2200 },
     status: "aberta",
-    x: 30,
-    z: 10,
   },
   {
     id: "vg-021",
@@ -417,8 +381,6 @@ export const vagas: Vaga[] = [
     frequencia: "3 dias por semana no canteiro",
     faixaSalarial: { min: 8000, max: 12000 },
     status: "aberta",
-    x: 50,
-    z: 10,
   },
   {
     id: "vg-022",
@@ -434,8 +396,6 @@ export const vagas: Vaga[] = [
     frequencia: "1 dia por semana na loja",
     faixaSalarial: { min: 3500, max: 4500 },
     status: "encerrada",
-    x: -50,
-    z: 30,
   },
   {
     id: "vg-023",
@@ -450,8 +410,6 @@ export const vagas: Vaga[] = [
     cidade: "Goiânia",
     faixaSalarial: { min: 1700, max: 2100 },
     status: "aberta",
-    x: -30,
-    z: 30,
   },
   {
     id: "vg-024",
@@ -466,8 +424,6 @@ export const vagas: Vaga[] = [
     cidade: "Goiânia",
     faixaSalarial: { min: 3200, max: 4200 },
     status: "aberta",
-    x: -10,
-    z: 30,
   },
   {
     id: "vg-025",
@@ -483,8 +439,6 @@ export const vagas: Vaga[] = [
     frequencia: "3 dias por semana no escritório",
     faixaSalarial: { min: 5000, max: 7000 },
     status: "aberta",
-    x: 10,
-    z: 30,
   },
   {
     id: "vg-026",
@@ -499,8 +453,6 @@ export const vagas: Vaga[] = [
     cidade: "Senador Canedo",
     faixaSalarial: { min: 4200, max: 5200 },
     status: "aberta",
-    x: 30,
-    z: 30,
   },
   {
     id: "vg-027",
@@ -515,8 +467,6 @@ export const vagas: Vaga[] = [
     cidade: "Anápolis",
     faixaSalarial: { min: 2500, max: 3100 },
     status: "aberta",
-    x: 50,
-    z: 30,
   },
   {
     id: "vg-028",
@@ -531,8 +481,6 @@ export const vagas: Vaga[] = [
     cidade: "Goiânia",
     faixaSalarial: { min: 1800, max: 2400 },
     status: "aberta",
-    x: -30,
-    z: 50,
   },
   {
     id: "vg-029",
@@ -547,8 +495,6 @@ export const vagas: Vaga[] = [
     cidade: "Goiânia",
     faixaSalarial: { min: 2800, max: 3600 },
     status: "encerrada",
-    x: -10,
-    z: 50,
   },
   {
     id: "vg-030",
@@ -564,8 +510,6 @@ export const vagas: Vaga[] = [
     frequencia: "2 dias por semana na agência",
     faixaSalarial: { min: 3500, max: 5000 },
     status: "aberta",
-    x: 30,
-    z: 50,
   },
 
   // ── Vila remota ───────────────────────────────────────────────────────
@@ -578,11 +522,9 @@ export const vagas: Vaga[] = [
     requisitos: ["Experiência com Node.js ou Go", "Bancos relacionais", "Cloud (AWS ou GCP)"],
     beneficios: ["Plano de saúde", "Auxílio home office", "Horário flexível"],
     modelo: "remoto",
-    estado: "Brasil inteiro",
+    abrangencia: { tipo: "brasil" },
     faixaSalarial: { min: 9000, max: 14000 },
     status: "encerrada",
-    x: 120,
-    z: -10,
   },
   {
     id: "vg-032",
@@ -593,11 +535,9 @@ export const vagas: Vaga[] = [
     requisitos: ["SQL avançado", "Python ou R", "Ferramentas de BI"],
     beneficios: ["Plano de saúde", "Auxílio home office", "Verba para cursos"],
     modelo: "remoto",
-    estado: "Brasil inteiro",
+    abrangencia: { tipo: "brasil" },
     faixaSalarial: { min: 7000, max: 11000 },
     status: "aberta",
-    x: 140,
-    z: -10,
   },
   {
     id: "vg-033",
@@ -608,11 +548,9 @@ export const vagas: Vaga[] = [
     requisitos: ["Ensino médio completo", "Noções de informática", "Boa escrita"],
     beneficios: ["Auxílio internet", "Plano de saúde", "Equipamento fornecido"],
     modelo: "remoto",
-    estado: "Remoto para GO",
+    abrangencia: { tipo: "ufs", ufs: ["GO"] },
     faixaSalarial: { min: 2200, max: 2800 },
     status: "aberta",
-    x: 160,
-    z: -10,
   },
   {
     id: "vg-034",
@@ -623,11 +561,9 @@ export const vagas: Vaga[] = [
     requisitos: ["Excelente escrita", "Noções de SEO", "Portfólio de textos"],
     beneficios: ["Horário flexível", "Auxílio home office", "Day off no aniversário"],
     modelo: "remoto",
-    estado: "Brasil inteiro",
+    abrangencia: { tipo: "brasil" },
     faixaSalarial: { min: 3000, max: 4500 },
     status: "aberta",
-    x: 116.5,
-    z: 10,
   },
   {
     id: "vg-035",
@@ -638,11 +574,9 @@ export const vagas: Vaga[] = [
     requisitos: ["Ensino médio completo", "Boa comunicação", "Internet estável"],
     beneficios: ["Auxílio internet", "Vale-alimentação", "Equipamento fornecido"],
     modelo: "remoto",
-    estado: "Remoto para GO",
+    abrangencia: { tipo: "ufs", ufs: ["GO"] },
     faixaSalarial: { min: 1800, max: 2300 },
     status: "aberta",
-    x: 123.5,
-    z: 10,
   },
   {
     id: "vg-036",
@@ -653,11 +587,9 @@ export const vagas: Vaga[] = [
     requisitos: ["Portfólio de UX/UI", "Figma", "Experiência com pesquisa com usuários"],
     beneficios: ["Plano de saúde", "Auxílio home office", "Verba para cursos"],
     modelo: "remoto",
-    estado: "Brasil inteiro",
+    abrangencia: { tipo: "brasil" },
     faixaSalarial: { min: 6000, max: 9500 },
     status: "aberta",
-    x: 140,
-    z: 10,
   },
   {
     id: "vg-037",
@@ -668,11 +600,9 @@ export const vagas: Vaga[] = [
     requisitos: ["Graduação na área do curso", "Familiaridade com plataformas EAD", "Boa escrita"],
     beneficios: ["Horário flexível", "Auxílio internet", "Bolsa de estudos"],
     modelo: "remoto",
-    estado: "Remoto para GO",
+    abrangencia: { tipo: "ufs", ufs: ["GO"] },
     faixaSalarial: { min: 2500, max: 3200 },
     status: "encerrada",
-    x: 160,
-    z: 10,
   },
   {
     id: "vg-038",
@@ -683,11 +613,9 @@ export const vagas: Vaga[] = [
     requisitos: ["React Native ou Flutter", "Publicação em lojas de apps", "Testes automatizados"],
     beneficios: ["Plano de saúde", "Auxílio home office", "Horário flexível"],
     modelo: "remoto",
-    estado: "Brasil inteiro",
+    abrangencia: { tipo: "brasil" },
     faixaSalarial: { min: 7500, max: 12000 },
     status: "aberta",
-    x: 120,
-    z: 30,
   },
   {
     id: "vg-039",
@@ -698,11 +626,9 @@ export const vagas: Vaga[] = [
     requisitos: ["Experiência com Google e Meta Ads", "Google Analytics", "Análise de dados"],
     beneficios: ["Bônus por resultados", "Auxílio home office", "Verba para cursos"],
     modelo: "remoto",
-    estado: "Remoto para GO",
+    abrangencia: { tipo: "ufs", ufs: ["GO"] },
     faixaSalarial: { min: 3500, max: 5000 },
     status: "aberta",
-    x: 140,
-    z: 30,
   },
   {
     id: "vg-040",
@@ -713,10 +639,8 @@ export const vagas: Vaga[] = [
     requisitos: ["Graduação em Ciências Contábeis", "Registro no CRC", "Experiência com Lucro Presumido"],
     beneficios: ["Plano de saúde", "Auxílio home office", "Participação nos lucros"],
     modelo: "remoto",
-    estado: "Remoto para GO e DF",
+    abrangencia: { tipo: "ufs", ufs: ["DF", "GO"] },
     faixaSalarial: { min: 5000, max: 7500 },
     status: "aberta",
-    x: 160,
-    z: 30,
   },
 ];

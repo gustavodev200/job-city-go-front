@@ -1,16 +1,14 @@
 // Vagas fictícias em escala nacional (dados mock). Determinístico: mesma semente,
-// mesma lista. As vagas escritas à mão de data/vagas.ts entram com o mesmo id; a cena
-// da cidade continua lendo data/vagas.ts até a spec 003.
+// mesma lista. As vagas escritas à mão de data/vagas.ts entram com o mesmo id. É a
+// fonte de vagas de todos os níveis (mapa, estado, cidade e Bairro Remoto).
 import { criarAleatorio, type Aleatorio } from "@/lib/aleatorio";
-import { vagas as vagasCidadeAtual, type Categoria, type Status, type Vaga } from "@/data/vagas";
+import { vagas as vagasCidadeAtual, type Abrangencia, type Categoria, type Status, type Vaga } from "@/data/vagas";
 import { cidades } from "./cidades";
 import { estados, UFS, type Uf } from "./estados";
 import type { Cidade, Porte } from "./tipos";
 
-type SemPosicao<T> = T extends unknown ? Omit<T, "x" | "z"> : never;
-
-/** Vaga do mapa nacional: sem posição na cena da cidade, com UF e cidade. */
-export type VagaNacional = SemPosicao<Vaga> & {
+/** Vaga do mapa nacional: com UF e cidade (a posição na cena vem do mundo gerado). */
+export type VagaNacional = Vaga & {
   /** Presencial/híbrida: UF da cidade. Remota: UF de origem da empresa. */
   uf: Uf;
   /** Presencial/híbrida: id da cidade. Remota: null (fica no Bairro Remoto). */
@@ -124,8 +122,7 @@ function pesoCidade(c: Cidade) {
 
 function converterCidadeAtual(): VagaNacional[] {
   return vagasCidadeAtual.map((v) => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- descarta a posição da cena da cidade
-    const { x, z, ...resto } = v;
+    const resto = v;
     if (resto.modelo === "remoto") return { ...resto, uf: "GO", cidadeId: null };
     const cidade = cidades.find((c) => c.uf === "GO" && c.nome === resto.cidade);
     if (!cidade) throw new Error(`Cidade sem cadastro: ${resto.cidade}`);
@@ -164,16 +161,24 @@ export function gerarVagasBrasil(semente = SEMENTE): VagaNacional[] {
 
   for (let i = 0; i < TOTAL_REMOTAS; i++) {
     const origem = a.escolher(cidades);
-    const abrangencia = a.escolher(["Brasil inteiro", `Remoto para ${origem.uf}`, "Fuso de Brasília"]);
+    const abrangencia = a.escolher<Abrangencia>([
+      { tipo: "brasil" },
+      { tipo: "ufs", ufs: [origem.uf] },
+      { tipo: "fuso", fuso: "brasilia" },
+    ]);
     lista.push({
       id: novoId(),
       ...sortearVaga(a, REMOTAS, origem.nome),
       modelo: "remoto",
-      estado: abrangencia,
+      abrangencia,
       uf: origem.uf,
       cidadeId: null,
     });
   }
+
+  // Uma remota patrocinada para demonstrar o destaque (a spec 009 cria os de verdade).
+  const patrocinada = lista.find((v) => v.modelo === "remoto" && v.status === "aberta" && v.id.startsWith("vn-"));
+  if (patrocinada) patrocinada.destaque = { ate: "2099-12-31" };
   return lista;
 }
 

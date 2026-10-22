@@ -1,14 +1,14 @@
 "use client";
 
 import { useFrame } from "@react-three/fiber";
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useReducedMotion } from "@/lib/movimento";
 import { selecionarHora, useRelogioReal, useTempoStore } from "@/stores/tempo";
 import { aproximar, calcularCeu, cicloRuntime, criarEstado } from "./ciclo";
 import { GLASS_MATERIAL, LIT_MATERIAL } from "./Instanced";
 import { playerRuntime } from "./playerRuntime";
-import { LAMP_HEADS } from "./Roads";
+import type { Poste } from "./Roads";
 
 const SHADOW_EXTENT = 50;
 const SHADOW_MAP = 2048;
@@ -234,13 +234,16 @@ const GLOW_MAP = glowTexture();
 const ADDITIVE = { map: GLOW_MAP, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false };
 const HALO_MATERIAL = new THREE.PointsMaterial({ ...ADDITIVE, color: "#ffcf8a", size: 2.4, sizeAttenuation: true });
 const POOL_MATERIAL = new THREE.MeshBasicMaterial({ ...ADDITIVE, color: "#ffb45e", polygonOffset: true, polygonOffsetFactor: -4 });
-const HALO_GEOMETRY = new THREE.BufferGeometry().setAttribute(
-  "position",
-  new THREE.Float32BufferAttribute(LAMP_HEADS.flatMap((l) => [l.x, l.y - 0.05, l.z]), 3),
-);
-
-function StreetLights({ pointLights }: { pointLights: boolean }) {
+function StreetLights({ pointLights, postes: LAMP_HEADS }: { pointLights: boolean; postes: readonly Poste[] }) {
   const pools = useRef<THREE.InstancedMesh>(null);
+  const HALO_GEOMETRY = useMemo(
+    () =>
+      new THREE.BufferGeometry().setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(LAMP_HEADS.flatMap((l) => [l.x, l.y - 0.05, l.z]), 3),
+      ),
+    [LAMP_HEADS],
+  );
   const lights = useRef<(THREE.PointLight | null)[]>([]);
   const sinceTick = useRef(TICK);
 
@@ -257,7 +260,7 @@ function StreetLights({ pointLights }: { pointLights: boolean }) {
     });
     mesh.instanceMatrix.needsUpdate = true;
     mesh.computeBoundingSphere();
-  }, []);
+  }, [LAMP_HEADS]);
 
   useFrame((_, dt) => {
     const on = cicloRuntime.luzes;
@@ -356,9 +359,12 @@ type DayNightProps = {
   neblina?: [number, number];
   /** Postes, janelas e vidros da cidade (desligado no mapa do Brasil). */
   cidade?: boolean;
+  /** Lâmpadas dos postes do mundo aberto (cidade). */
+  postes?: readonly Poste[];
 };
 
 const focoPersonagem = () => playerRuntime.position;
+const SEM_POSTES: readonly Poste[] = [];
 
 export function DayNight({
   shadows,
@@ -367,6 +373,7 @@ export function DayNight({
   raioCeu = SKY_RADIUS,
   neblina = [85, 250],
   cidade = true,
+  postes = SEM_POSTES,
 }: DayNightProps) {
   useRelogioReal();
   const reduced = useReducedMotion();
@@ -475,7 +482,7 @@ export function DayNight({
         shadow-radius={4}
       />
       <directionalLight ref={moon} color="#9fb8ff" intensity={0} />
-      {cidade && <StreetLights pointLights={pointLights} />}
+      {cidade && postes.length > 0 && <StreetLights pointLights={pointLights} postes={postes} />}
     </>
   );
 }

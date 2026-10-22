@@ -1,32 +1,26 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import {
-  BRIDGE,
-  CITY_BLOCK_CENTERS,
-  CITY_BLOCK_SIZE,
-  CITY_HALF,
-  RIVER,
-  VILLAGE_BOUNDS,
-  VILLAGE_ROAD_WIDTH,
-  VILLAGE_ROAD_XS,
-  VILLAGE_ROAD_ZS,
-} from "@/data/mapa";
+import { QUARTEIRAO as CITY_BLOCK_SIZE, type Mundo } from "@/lib/cidade/mundo";
 import { CATEGORIA_COLORS, MODELO_COLORS } from "./cores";
-import { vagasCidade, vagasVila } from "./layout";
+import { useMundo } from "./mundo";
 import { playerRuntime } from "./playerRuntime";
 
 /** World meters shown from the center to the rim. */
 const RANGE = 70;
 
-const POINTS = [
-  ...vagasCidade.map((v) => ({ x: v.x, z: v.z, color: CATEGORIA_COLORS[v.categoria], aberta: v.status === "aberta" })),
-  ...vagasVila.map((v) => ({ x: v.x, z: v.z, color: MODELO_COLORS.remoto, aberta: v.status === "aberta" })),
-];
+const pontosDo = (mundo: Mundo) =>
+  mundo.lotes.map((l) => ({
+    x: l.x,
+    z: l.z,
+    color: l.vaga.modelo === "remoto" ? MODELO_COLORS.remoto : CATEGORIA_COLORS[l.vaga.categoria],
+    aberta: l.vaga.status === "aberta",
+  }));
 
 /** Circular radar mini-map. Rotates so the character always faces up. */
 export function Minimap({ size }: { size: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const mundo = useMundo();
 
   useEffect(() => {
     const canvas = ref.current;
@@ -37,6 +31,8 @@ export function Minimap({ size }: { size: number }) {
     canvas.height = size * dpr;
     const R = size / 2;
     const scale = R / RANGE;
+    const POINTS = pontosDo(mundo);
+    const { urbano, centrosX, centrosZ, rio, ponte, ruasX, ruasZ, larguraRua } = mundo;
     let frame = 0;
 
     const draw = (time: number) => {
@@ -72,22 +68,25 @@ export function Minimap({ size }: { size: number }) {
       ctx.scale(scale, scale);
       ctx.translate(-px, -pz);
       ctx.fillStyle = "rgba(255,255,255,0.13)";
-      ctx.fillRect(-CITY_HALF, -CITY_HALF, CITY_HALF * 2, CITY_HALF * 2);
+      ctx.fillRect(urbano.minX, urbano.minZ, urbano.maxX - urbano.minX, urbano.maxZ - urbano.minZ);
       ctx.fillStyle = "rgba(150,205,135,0.32)";
       const hb = CITY_BLOCK_SIZE / 2;
-      for (const bx of CITY_BLOCK_CENTERS) {
-        for (const bz of CITY_BLOCK_CENTERS) ctx.fillRect(bx - hb, bz - hb, CITY_BLOCK_SIZE, CITY_BLOCK_SIZE);
+      for (const bx of centrosX) {
+        for (const bz of centrosZ) ctx.fillRect(bx - hb, bz - hb, CITY_BLOCK_SIZE, CITY_BLOCK_SIZE);
       }
       ctx.fillStyle = "#3f8fb8";
-      ctx.fillRect(RIVER.x - RIVER.halfWidth, -400, RIVER.halfWidth * 2, 800);
+      ctx.fillRect(rio.x - rio.meiaLargura, -400, rio.meiaLargura * 2, 800);
       ctx.fillStyle = "#d8d2c4";
-      ctx.fillRect(BRIDGE.x0, -BRIDGE.halfWidth, BRIDGE.x1 - BRIDGE.x0, BRIDGE.halfWidth * 2);
-      ctx.fillStyle = "rgba(217,195,154,0.6)";
-      ctx.fillRect(BRIDGE.x1, -VILLAGE_ROAD_WIDTH / 2, VILLAGE_BOUNDS.minX - BRIDGE.x1, VILLAGE_ROAD_WIDTH);
-      const vw = VILLAGE_BOUNDS.maxX - VILLAGE_BOUNDS.minX;
-      const vd = VILLAGE_BOUNDS.maxZ - VILLAGE_BOUNDS.minZ;
-      for (const x of VILLAGE_ROAD_XS) ctx.fillRect(x - 2, VILLAGE_BOUNDS.minZ, VILLAGE_ROAD_WIDTH, vd);
-      for (const z of VILLAGE_ROAD_ZS) ctx.fillRect(VILLAGE_BOUNDS.minX, z - 2, vw, VILLAGE_ROAD_WIDTH);
+      ctx.fillRect(ponte.x0, -ponte.meiaLargura, ponte.x1 - ponte.x0, ponte.meiaLargura * 2);
+      if (mundo.tipo === "remoto") {
+        // Estrada de terra da ponte à vila e ruas da vila.
+        ctx.fillStyle = "rgba(217,195,154,0.6)";
+        ctx.fillRect(ponte.x1, -larguraRua / 2, urbano.minX - ponte.x1, larguraRua);
+        const vw = ruasX.at(-1)! - ruasX[0];
+        const vd = ruasZ.at(-1)! - ruasZ[0];
+        for (const x of ruasX) ctx.fillRect(x - larguraRua / 2, ruasZ[0], larguraRua, vd);
+        for (const z of ruasZ) ctx.fillRect(ruasX[0], z - larguraRua / 2, vw, larguraRua);
+      }
       ctx.restore();
 
       // Guide rings and a soft expanding surveillance ring.
@@ -173,7 +172,7 @@ export function Minimap({ size }: { size: number }) {
     };
     frame = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(frame);
-  }, [size]);
+  }, [size, mundo]);
 
   return (
     <canvas

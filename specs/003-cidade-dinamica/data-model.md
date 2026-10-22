@@ -69,9 +69,10 @@ Lote = { vagaId: string; x: number; z: number; categoria: Categoria | null /* re
 
 Regras (testadas):
 
-- Cidade: grade `N×N`, `N = max(2, ⌈√(vagas + 2 + max(2, ⌈0,15·vagas⌉))⌉)`,
-  passo 20, quarteirão 14, rua 6; **1 lote por quarteirão**; praça =
-  quarteirão mais perto da origem (desempate: menor x, maior z).
+- Cidade: rede fixa de quarteirões (centros em múltiplos ímpares de 10, passo 20,
+  quarteirão 14, rua 6); praça fixa em (−10, 10); a cidade é a caixa que contém
+  os `vagas + 2 + max(2, ⌈0,15·vagas⌉)` quarteirões mais próximos da praça
+  (mínimo 3×3); **1 lote por quarteirão** (ver Notas da implementação em tasks.md).
 - Remoto: quarteirão 14, rua 4, **4 lotes por quarteirão** (±3,4), grade
   `N×N` com `N = max(2, ⌈√⌈vagas/4⌉⌉)`.
 - Lotes atribuídos às vagas **na ordem do conjunto mock**, quarteirões livres
@@ -93,7 +94,7 @@ estimarDeslocamento(origem: Cidade, destino: Cidade):
   | { mesmaCidade: false; km: number; minutos: number }
 ```
 
-`km = round(distanciaKm × 1,25)`; `minutos = max(10, arredondado para 5(km / 45 × 60))`.
+`km = distanciaKm` (linha reta; ver Notas da implementação); `minutos = max(10, arredondado para 5(km / 45 × 60))`.
 
 ## Abrangência x perfil — `src/lib/cidade/abrangencia.ts` (NOVO, derivado)
 

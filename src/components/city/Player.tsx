@@ -3,13 +3,11 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { AREAS, walkHeight, type Area } from "@/data/mapa";
-import { useGameStore, type Travel } from "@/stores/game";
-import { isBlocked, isInsideBuilding, nearestVagaId } from "./layout";
-import { playerRuntime } from "./playerRuntime";
-import { isInsideCanopy } from "./Trees";
 import { Desenvolvedor, applyGait, type GaitState, type Rig } from "@/components/personagem/Desenvolvedor";
-
+import { useGameStore } from "@/stores/game";
+import { useMundo } from "./mundo";
+import { playerRuntime } from "./playerRuntime";
+import { arvoresDoMundo, dentroDeCopa } from "./Trees";
 
 // Speeds tuned to the character's leg length so the gait reads as a brisk walk / run.
 const SPEED = 5;
@@ -31,11 +29,13 @@ const _dir = new THREE.Vector3();
 const _probe = new THREE.Vector3();
 const _desired = new THREE.Vector3();
 
-type TravelAnim = { from: THREE.Vector2; to: THREE.Vector2; t: number; duration: number; arc: number };
+/** Onde o personagem aparece e para onde a câmera olha (yaw 0 = câmera ao sul, olhando para o norte). */
+export type Inicio = { x: number; z: number; yaw: number };
 
-const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-
-export function Player({ areaInicial = "cidade" }: { areaInicial?: Area }) {
+export function Player({ inicio, aoAtravessar }: { inicio: Inicio; aoAtravessar?: () => void }) {
+  const mundo = useMundo();
+  const arvores = arvoresDoMundo(mundo);
+  const atravessou = useRef(false);
   const group = useRef<THREE.Group>(null);
   const rig = useRef<Rig>(null);
   const camera = useThree((state) => state.camera);
@@ -43,19 +43,17 @@ export function Player({ areaInicial = "cidade" }: { areaInicial?: Area }) {
 
   const keys = useRef(new Set<string>());
   const sim = useRef({
-    x: AREAS[areaInicial].x,
-    z: AREAS[areaInicial].z + 2,
-    y: walkHeight(AREAS[areaInicial].x, AREAS[areaInicial].z + 2),
+    x: inicio.x,
+    z: inicio.z,
+    y: mundo.alturaDoPasso(inicio.x, inicio.z),
     vy: 0,
     grounded: true,
-    facing: Math.PI,
-    yaw: 0,
+    facing: inicio.yaw + Math.PI,
+    yaw: inicio.yaw,
     pitch: 0.45,
     gait: { phase: 0, move: 0, run: 0, air: 0, land: 0, time: 0 } as GaitState,
     speed: 0,
     nearbyTimer: 0,
-    travel: null as Travel | null,
-    anim: null as TravelAnim | null,
     cameraReady: false,
     cameraDistance: useGameStore.getState().cameraDistance,
   });
@@ -132,83 +130,50 @@ export function Player({ areaInicial = "cidade" }: { areaInicial?: Area }) {
     const prevX = s.x;
     const prevZ = s.z;
 
-    // Nova viagem pedida pelo HUD
-    if (store.travel && store.travel !== s.travel) {
-      s.travel = store.travel;
-      const from = new THREE.Vector2(s.x, s.z);
-      const to = new THREE.Vector2(store.travel.x, store.travel.z);
-      const distance = from.distanceTo(to);
-      s.anim = {
-        from,
-        to,
-        t: 0,
-        duration: THREE.MathUtils.clamp(distance / 55, 1.2, 3),
-        arc: Math.min(22, distance * 0.15),
-      };
-      s.facing = Math.atan2(to.x - from.x, to.y - from.y);
+    const k = keys.current;
+    const forward = Number(k.has("KeyW") || k.has("ArrowUp")) - Number(k.has("KeyS") || k.has("ArrowDown"));
+    const strafe = Number(k.has("KeyD") || k.has("ArrowRight")) - Number(k.has("KeyA") || k.has("ArrowLeft"));
+
+    if (forward !== 0 || strafe !== 0) {
+      const sin = Math.sin(s.yaw);
+      const cos = Math.cos(s.yaw);
+      // Frente = da câmera para o personagem; direita = frente × cima.
+      let dx = -sin * forward + cos * strafe;
+      let dz = -cos * forward - sin * strafe;
+      const len = Math.hypot(dx, dz);
+      dx /= len;
+      dz /= len;
+      const step = (k.has("ShiftLeft") || k.has("ShiftRight") ? RUN_SPEED : SPEED) * dt;
+      const nx = s.x + dx * step;
+      const nz = s.z + dz * step;
+      if (!mundo.bloqueado(nx, nz, RADIUS)) {
+        s.x = nx;
+        s.z = nz;
+      } else if (!mundo.bloqueado(nx, s.z, RADIUS)) {
+        s.x = nx;
+      } else if (!mundo.bloqueado(s.x, nz, RADIUS)) {
+        s.z = nz;
+      }
+      s.facing = Math.atan2(dx, dz);
     }
 
-    if (s.anim) {
-      const a = s.anim;
-      // Tempo real (não o dt limitado) para a viagem durar o mesmo em qualquer FPS.
-      a.t = Math.min(1, a.t + Math.min(rawDelta, 0.25) / a.duration);
-      const k = easeInOut(a.t);
-      s.x = THREE.MathUtils.lerp(a.from.x, a.to.x, k);
-      s.z = THREE.MathUtils.lerp(a.from.y, a.to.y, k);
-      s.y = walkHeight(s.x, s.z) + Math.sin(Math.PI * k) * a.arc;
+    if (k.has("Space") && s.grounded) {
+      s.vy = JUMP_SPEED;
+      s.grounded = false;
+    }
+
+    const floor = mundo.alturaDoPasso(s.x, s.z);
+    s.vy -= GRAVITY * dt;
+    s.y += s.vy * dt;
+    // Gruda no chão em descidas suaves; sobe degraus pequenos (ponte, calçada).
+    if (s.y <= floor || (s.grounded && s.vy <= 0 && s.y - floor < 0.45)) {
+      // Touchdown after a real fall: knees absorb it in proportion to the impact speed.
+      if (!s.grounded && s.vy < -3) s.gait.land = Math.min(1, -s.vy / 10);
+      s.y = floor;
       s.vy = 0;
-      if (a.t >= 1) {
-        s.anim = null;
-        s.grounded = true;
-        s.gait.land = 1;
-        store.finishTravel();
-      }
+      s.grounded = true;
     } else {
-      const k = keys.current;
-      const forward = Number(k.has("KeyW") || k.has("ArrowUp")) - Number(k.has("KeyS") || k.has("ArrowDown"));
-      const strafe = Number(k.has("KeyD") || k.has("ArrowRight")) - Number(k.has("KeyA") || k.has("ArrowLeft"));
-
-      if (forward !== 0 || strafe !== 0) {
-        const sin = Math.sin(s.yaw);
-        const cos = Math.cos(s.yaw);
-        // Frente = da câmera para o personagem; direita = frente × cima.
-        let dx = -sin * forward + cos * strafe;
-        let dz = -cos * forward - sin * strafe;
-        const len = Math.hypot(dx, dz);
-        dx /= len;
-        dz /= len;
-        const step = (k.has("ShiftLeft") || k.has("ShiftRight") ? RUN_SPEED : SPEED) * dt;
-        const nx = s.x + dx * step;
-        const nz = s.z + dz * step;
-        if (!isBlocked(nx, nz, RADIUS)) {
-          s.x = nx;
-          s.z = nz;
-        } else if (!isBlocked(nx, s.z, RADIUS)) {
-          s.x = nx;
-        } else if (!isBlocked(s.x, nz, RADIUS)) {
-          s.z = nz;
-        }
-        s.facing = Math.atan2(dx, dz);
-      }
-
-      if (k.has("Space") && s.grounded) {
-        s.vy = JUMP_SPEED;
-        s.grounded = false;
-      }
-
-      const floor = walkHeight(s.x, s.z);
-      s.vy -= GRAVITY * dt;
-      s.y += s.vy * dt;
-      // Gruda no chão em descidas suaves; sobe degraus pequenos (ponte, calçada).
-      if (s.y <= floor || (s.grounded && s.vy <= 0 && s.y - floor < 0.45)) {
-        // Touchdown after a real fall: knees absorb it in proportion to the impact speed.
-        if (!s.grounded && s.vy < -3) s.gait.land = Math.min(1, -s.vy / 10);
-        s.y = floor;
-        s.vy = 0;
-        s.grounded = true;
-      } else {
-        s.grounded = false;
-      }
+      s.grounded = false;
     }
 
     // Modelo
@@ -219,7 +184,7 @@ export function Player({ areaInicial = "cidade" }: { areaInicial?: Area }) {
       g.rotation.y += turn * Math.min(1, dt * 12);
     }
     // Gait driven by the distance actually travelled (after collisions), so feet don't skate.
-    const travelled = s.anim ? 0 : Math.hypot(s.x - prevX, s.z - prevZ);
+    const travelled = Math.hypot(s.x - prevX, s.z - prevZ);
     s.speed += (travelled / Math.max(dt, 1e-4) - s.speed) * (1 - Math.exp(-dt * 10));
     const gait = s.gait;
     gait.time += dt;
@@ -229,7 +194,7 @@ export function Player({ areaInicial = "cidade" }: { areaInicial?: Area }) {
       const step = THREE.MathUtils.lerp(WALK_STEP, RUN_STEP, gait.run);
       gait.phase += (travelled / (2 * step)) * Math.PI * 2;
     }
-    const inAir = s.anim !== null || !s.grounded ? 1 : 0;
+    const inAir = s.grounded ? 0 : 1;
     gait.air += (inAir - gait.air) * (1 - Math.exp(-dt * 14));
     gait.land *= Math.exp(-dt * 7);
     if (rig.current) applyGait(rig.current, gait);
@@ -250,7 +215,7 @@ export function Player({ areaInicial = "cidade" }: { areaInicial?: Area }) {
       const d = (store.cameraDistance * i) / CAMERA_PROBES;
       if (d < 2) continue; // the player may be hugging a wall
       const p = _probe.copy(target).addScaledVector(dir, d);
-      if (isInsideBuilding(p.x, p.y, p.z, 0.25) || isInsideCanopy(p.x, p.y, p.z)) {
+      if (mundo.dentroDePredio(p.x, p.y, p.z, 0.25) || dentroDeCopa(arvores, p.x, p.y, p.z)) {
         free = Math.max(MIN_CAMERA_DISTANCE, d - store.cameraDistance / CAMERA_PROBES);
         break;
       }
@@ -258,13 +223,13 @@ export function Player({ areaInicial = "cidade" }: { areaInicial?: Area }) {
     // Snap in quickly when blocked, ease back out when clear.
     s.cameraDistance += (free - s.cameraDistance) * (free < s.cameraDistance ? 0.5 : 1 - Math.exp(-dt * 3));
     const desired = _desired.copy(target).addScaledVector(dir, s.cameraDistance);
-    desired.y = Math.max(desired.y, walkHeight(desired.x, desired.z) + 1);
+    desired.y = Math.max(desired.y, mundo.alturaDoPasso(desired.x, desired.z) + 1);
     if (!s.cameraReady) {
       camera.position.copy(desired);
       lookTarget.current.copy(target);
       s.cameraReady = true;
     } else {
-      const follow = 1 - Math.exp(-dt * (s.anim ? 10 : 7));
+      const follow = 1 - Math.exp(-dt * 7);
       camera.position.lerp(desired, follow);
       lookTarget.current.lerp(target, follow);
     }
@@ -274,8 +239,14 @@ export function Player({ areaInicial = "cidade" }: { areaInicial?: Area }) {
     s.nearbyTimer -= dt;
     if (s.nearbyTimer <= 0) {
       s.nearbyTimer = NEARBY_INTERVAL;
-      const nearby = s.anim ? null : nearestVagaId(s.x, s.z);
+      const nearby = mundo.vagaProxima(s.x, s.z);
       if (nearby !== store.nearbyVagaId) store.setNearbyVaga(nearby);
+    }
+
+    // Portal da margem oposta: leva ao outro mundo (uma vez).
+    if (aoAtravessar && !atravessou.current && mundo.noPortal(s.x, s.z)) {
+      atravessou.current = true;
+      aoAtravessar();
     }
   });
 

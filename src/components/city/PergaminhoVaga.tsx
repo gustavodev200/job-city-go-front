@@ -1,10 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { CATEGORIA_LABEL, vagas, type Vaga } from "@/data/vagas";
+import { EscolherCidade } from "@/components/brasil/EscolherCidade";
+import { estados } from "@/data/brasil/estados";
+import type { VagaNacional } from "@/data/brasil/vagas";
+import { CATEGORIA_LABEL } from "@/data/vagas";
+import { cidadePorId } from "@/lib/brasil/rotas";
+import { avisoAbrangencia, rotuloAbrangencia } from "@/lib/cidade/abrangencia";
+import { estimarDeslocamento, textoDeslocamento } from "@/lib/cidade/deslocamento";
+import { destaqueAtivo } from "@/lib/cidade/mundo";
 import { useGameStore } from "@/stores/game";
+import { usePerfilStore } from "@/stores/perfil";
 import { CATEGORIA_COLORS, MODELO_COLORS, MODELO_LABEL } from "./cores";
 import { CategoriaIcon, ModeloIcon } from "./icons";
+import { useMundo } from "./mundo";
 import { usePresence } from "./usePresence";
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -68,12 +77,51 @@ function Selo({ aberta }: { aberta: boolean }) {
   );
 }
 
-function LocalEModelo({ vaga }: { vaga: Vaga }) {
-  if (vaga.modelo === "remoto") {
+/** Distância e tempo até a vaga a partir da cidade do perfil (FR-006). */
+function Deslocamento({ vaga }: { vaga: VagaNacional }) {
+  const perfil = usePerfilStore((s) => (s.cidadeId ? cidadePorId.get(s.cidadeId) : undefined));
+  const [escolhendo, setEscolhendo] = useState(false);
+  const destino = vaga.cidadeId ? cidadePorId.get(vaga.cidadeId) : undefined;
+  if (!destino || vaga.modelo === "remoto") return null;
+  const frequencia = vaga.modelo === "hibrido" ? vaga.frequencia : undefined;
+  if (perfil) {
     return (
-      <p>
-        <strong>Remoto</strong> — {vaga.estado}
+      <p className="mt-1">
+        Deslocamento desde {perfil.nome}: <strong>{textoDeslocamento(estimarDeslocamento(perfil, destino), frequencia)}</strong>
       </p>
+    );
+  }
+  return escolhendo ? (
+    <div className="mt-2 max-w-xs">
+      <EscolherCidade aoEscolher={() => setEscolhendo(false)} />
+    </div>
+  ) : (
+    <button
+      type="button"
+      onClick={() => setEscolhendo(true)}
+      className="mt-2 rounded-lg border border-[#b8925c] bg-[#fffaf0]/70 px-3 py-1.5 text-sm font-semibold"
+    >
+      Informe sua cidade para calcular o deslocamento
+    </button>
+  );
+}
+
+function LocalEModelo({ vaga }: { vaga: VagaNacional }) {
+  const perfilUf = usePerfilStore((s) => (s.cidadeId ? (cidadePorId.get(s.cidadeId)?.uf ?? null) : null));
+  if (vaga.modelo === "remoto") {
+    const aviso = avisoAbrangencia(perfilUf, vaga.abrangencia);
+    return (
+      <>
+        <p>
+          <strong>Remoto</strong> — {rotuloAbrangencia(vaga.abrangencia)}
+        </p>
+        <p className="mt-1">Empresa de {estados[vaga.uf].nome}</p>
+        {aviso && (
+          <p role="note" className="mt-2 rounded-lg bg-[#b3261e]/12 px-3 py-2 font-semibold text-[#8a1c14]">
+            {aviso}
+          </p>
+        )}
+      </>
     );
   }
   return (
@@ -86,6 +134,7 @@ function LocalEModelo({ vaga }: { vaga: Vaga }) {
           Frequência de presença: <strong>{vaga.frequencia}</strong>
         </p>
       )}
+      <Deslocamento vaga={vaga} />
     </>
   );
 }
@@ -105,7 +154,8 @@ function Chip({ color, icon, label }: { color: string; icon: ReactNode; label: s
 export function PergaminhoVaga() {
   const selectedId = useGameStore((s) => s.selectedVagaId);
   const selectVaga = useGameStore((s) => s.selectVaga);
-  const { shown: vaga, leaving, onExited } = usePresence(vagas.find((v) => v.id === selectedId) ?? null);
+  const mundo = useMundo();
+  const { shown: vaga, leaving, onExited } = usePresence(mundo.vagas.find((v) => v.id === selectedId) ?? null);
   const [candidaturas, setCandidaturas] = useState<string[]>([]);
   const dialogRef = useRef<HTMLDivElement>(null);
   const primaryRef = useRef<HTMLButtonElement>(null);
@@ -194,6 +244,11 @@ export function PergaminhoVaga() {
                   icon={<ModeloIcon modelo={vaga.modelo} size={14} />}
                   label={MODELO_LABEL[vaga.modelo]}
                 />
+                {destaqueAtivo(vaga) && (
+                  <span className="inline-flex items-center rounded-full bg-[#f2c230] px-2.5 py-0.5 text-xs font-bold text-[#3b2a1a]">
+                    Patrocinado
+                  </span>
+                )}
               </div>
               <h2 id="pergaminho-titulo" className="fonte-serifa text-2xl leading-tight font-bold text-[#2e1d0e] sm:text-4xl">
                 {vaga.titulo}

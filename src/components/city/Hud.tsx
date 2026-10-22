@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useSyncExternalStore, type MouseEvent, type ReactNode } from "react";
-import { RIVER, type Area } from "@/data/mapa";
-import { CATEGORIA_LABEL, vagas, type Categoria, type Modelo } from "@/data/vagas";
+import { useMemo, useState, useSyncExternalStore, type MouseEvent, type ReactNode } from "react";
+import { CATEGORIA_LABEL, ORDEM_CATEGORIAS, type Categoria, type Modelo } from "@/data/vagas";
+import type { Mundo } from "@/lib/cidade/mundo";
 import { useGameStore } from "@/stores/game";
 import { CATEGORIA_COLORS, MODELO_COLORS, MODELO_LABEL } from "./cores";
 import {
@@ -15,37 +15,27 @@ import {
   TapIcon,
   VillageIcon,
 } from "./icons";
-import { CATEGORIAS, vagasCidade, vagasVila } from "./layout";
 import { Minimap } from "./Minimap";
+import { useMundo } from "./mundo";
 import { PergaminhoVaga } from "./PergaminhoVaga";
-import { playerRuntime } from "./playerRuntime";
 import { usePresence } from "./usePresence";
 
 /** Virtual balance shown on the city sign (fixed for now). */
 const SALDO = 1250;
 
-const AREA_INFO: Record<Area, { nome: string; abertas: number; total: number }> = {
-  cidade: {
-    nome: "Cidade de Oportunidades",
-    abertas: vagasCidade.filter((v) => v.status === "aberta").length,
-    total: vagasCidade.length,
-  },
-  vila: {
-    nome: "Vila Remota",
-    abertas: vagasVila.filter((v) => v.status === "aberta").length,
-    total: vagasVila.length,
-  },
-};
-
-const CATEGORIA_COUNT = Object.fromEntries(
-  CATEGORIAS.map((cat) => [cat, vagasCidade.filter((v) => v.categoria === cat).length]),
-) as Record<Categoria, number>;
-
-const MODELO_COUNT: Record<Modelo, number> = {
-  presencial: vagasCidade.filter((v) => v.modelo === "presencial").length,
-  hibrido: vagasCidade.filter((v) => v.modelo === "hibrido").length,
-  remoto: vagasVila.length,
-};
+/** Contagens do mundo aberto (só vagas abertas na legenda — US2-3). */
+function contagens(mundo: Mundo) {
+  const abertas = mundo.vagas.filter((v) => v.status === "aberta");
+  const porCategoria = Object.fromEntries(
+    ORDEM_CATEGORIAS.map((cat) => [cat, abertas.filter((v) => v.modelo !== "remoto" && v.categoria === cat).length]),
+  ) as Record<Categoria, number>;
+  const porModelo: Record<Modelo, number> = {
+    presencial: abertas.filter((v) => v.modelo === "presencial").length,
+    hibrido: abertas.filter((v) => v.modelo === "hibrido").length,
+    remoto: abertas.filter((v) => v.modelo === "remoto").length,
+  };
+  return { abertas: abertas.length, total: mundo.vagas.length, porCategoria, porModelo };
+}
 
 function useMedia(query: string) {
   return useSyncExternalStore(
@@ -59,23 +49,12 @@ function useMedia(query: string) {
   );
 }
 
-/** Area the character is in, polled from the render loop (no per-frame React updates). */
-function useCurrentArea(): Area {
-  return useSyncExternalStore(
-    (onChange) => {
-      const id = window.setInterval(onChange, 400);
-      return () => window.clearInterval(id);
-    },
-    () => (playerRuntime.position.x > RIVER.x ? "vila" : "cidade"),
-    () => "cidade",
-  );
-}
-
 // ── Top-left: wooden sign ───────────────────────────────────────────────
 function PlacaArea() {
-  const area = useCurrentArea();
-  const info = AREA_INFO[area];
-  const AreaIcon = area === "cidade" ? CityIcon : VillageIcon;
+  const mundo = useMundo();
+  const info = useMemo(() => contagens(mundo), [mundo]);
+  const AreaIcon = mundo.tipo === "cidade" ? CityIcon : VillageIcon;
+  const nome = mundo.uf ? `${mundo.nome} · ${mundo.uf}` : mundo.nome;
   return (
     <aside
       aria-label="Área atual"
@@ -88,11 +67,11 @@ function PlacaArea() {
           <AreaIcon size={22} />
         </span>
         <div>
-          <p aria-live="polite" className="fonte-serifa text-sm leading-tight font-bold md:text-lg">
-            {info.nome}
-          </p>
+          <h1 className="fonte-serifa text-sm leading-tight font-bold md:text-lg">{nome}</h1>
           <p className="text-[11px] text-[#ffe9c7] md:text-xs">
-            <strong className="text-white">{info.abertas}</strong> vagas abertas de {info.total}
+            <strong className="text-white">{info.abertas}</strong>{" "}
+            {info.abertas === 1 ? "vaga" : "vagas"} {mundo.tipo === "remoto" ? "remotas " : ""}
+            {info.abertas === 1 ? "aberta" : "abertas"} de {info.total}
           </p>
         </div>
         <div
@@ -111,7 +90,7 @@ function PlacaArea() {
 // ── Top-right: notepad legend ───────────────────────────────────────────
 function LinhaLegenda({ color, icon, label, count }: { color: string; icon: ReactNode; label: string; count: number }) {
   return (
-    <li className="flex h-6 items-center gap-2 text-[13px]">
+    <li className={`flex h-6 items-center gap-2 text-[13px] ${count === 0 ? "opacity-45" : ""}`}>
       <span className="grid size-5 shrink-0 place-items-center rounded-full text-white" style={{ background: color }}>
         {icon}
       </span>
@@ -123,6 +102,9 @@ function LinhaLegenda({ color, icon, label, count }: { color: string; icon: Reac
 
 function Legenda() {
   const [aberta, setAberta] = useState(false);
+  const mundo = useMundo();
+  const { porCategoria, porModelo } = useMemo(() => contagens(mundo), [mundo]);
+  const modelos = (mundo.tipo === "remoto" ? ["remoto"] : ["presencial", "hibrido"]) as Modelo[];
   return (
     <aside aria-label="Legenda" className="absolute top-[4.75rem] right-3 flex flex-col items-end md:top-4 md:right-4">
       <button
@@ -144,27 +126,31 @@ function Legenda() {
         <div className="espiral mx-3 h-2.5" aria-hidden="true" />
         <div className="pr-3 pl-9">
           <p className="fonte-serifa mt-1 mb-1 text-base font-bold">Legenda</p>
-          <p className="text-[10px] font-bold tracking-[0.18em] text-[#6b3f1d] uppercase">Categorias</p>
-          <ul>
-            {CATEGORIAS.map((cat) => (
-              <LinhaLegenda
-                key={cat}
-                color={CATEGORIA_COLORS[cat]}
-                icon={<CategoriaIcon categoria={cat} size={12} />}
-                label={CATEGORIA_LABEL[cat]}
-                count={CATEGORIA_COUNT[cat]}
-              />
-            ))}
-          </ul>
+          {mundo.tipo === "cidade" && (
+            <>
+              <p className="text-[10px] font-bold tracking-[0.18em] text-[#6b3f1d] uppercase">Vagas abertas por categoria</p>
+              <ul aria-label="Vagas abertas por categoria">
+                {ORDEM_CATEGORIAS.map((cat) => (
+                  <LinhaLegenda
+                    key={cat}
+                    color={CATEGORIA_COLORS[cat]}
+                    icon={<CategoriaIcon categoria={cat} size={12} />}
+                    label={CATEGORIA_LABEL[cat]}
+                    count={porCategoria[cat]}
+                  />
+                ))}
+              </ul>
+            </>
+          )}
           <p className="mt-1.5 text-[10px] font-bold tracking-[0.18em] text-[#6b3f1d] uppercase">Modelos</p>
           <ul>
-            {(Object.keys(MODELO_COUNT) as Modelo[]).map((m) => (
+            {modelos.map((m) => (
               <LinhaLegenda
                 key={m}
                 color={MODELO_COLORS[m]}
                 icon={<ModeloIcon modelo={m} size={12} />}
-                label={MODELO_LABEL[m]}
-                count={MODELO_COUNT[m]}
+                label={m === "remoto" ? "Casa remota" : MODELO_LABEL[m]}
+                count={porModelo[m]}
               />
             ))}
           </ul>
@@ -220,7 +206,8 @@ function BalaoProximidade({ touch }: { touch: boolean }) {
   const nearbyId = useGameStore((s) => s.nearbyVagaId);
   const selectedId = useGameStore((s) => s.selectedVagaId);
   const selectVaga = useGameStore((s) => s.selectVaga);
-  const atual = selectedId ? null : (vagas.find((v) => v.id === nearbyId) ?? null);
+  const mundo = useMundo();
+  const atual = selectedId ? null : (mundo.vagas.find((v) => v.id === nearbyId) ?? null);
   const { shown: vaga, leaving, onExited } = usePresence(atual);
   if (!vaga) return null;
 
@@ -240,6 +227,7 @@ function BalaoProximidade({ touch }: { touch: boolean }) {
           <span className="flex items-center gap-2 text-[11px] font-bold tracking-wide text-[#6b3f1d] uppercase">
             <span className="size-2.5 rounded-full" style={{ background: MODELO_COLORS[vaga.modelo] }} />
             {MODELO_LABEL[vaga.modelo]}
+            {vaga.modelo === "hibrido" && <span className="normal-case">· {vaga.frequencia}</span>}
             {vaga.status === "encerrada" && <span className="text-[#8a1c14]">· encerrada</span>}
           </span>
           <span className="fonte-serifa block max-w-[16rem] truncate text-base font-bold">{vaga.titulo}</span>
@@ -263,26 +251,26 @@ function BalaoProximidade({ touch }: { touch: boolean }) {
   );
 }
 
-// ── Bottom-right: zoom, map cards and mini-map ──────────────────────────
-type CartaoAreaProps = {
-  area: Area;
-  compact: boolean;
-  disabled: boolean;
-  onGo: (e: MouseEvent<HTMLButtonElement>) => void;
-};
+// ── Bottom-right: zoom, portal and mini-map ─────────────────────────────
+/** Botão que faz o mesmo que atravessar o portal da ponte (acessível por teclado). */
+export type AcaoPortal = { rotulo: string; aoUsar: () => void };
 
-function CartaoArea({ area, compact, disabled, onGo }: CartaoAreaProps) {
-  const info = AREA_INFO[area];
-  const Icon = area === "cidade" ? CityIcon : VillageIcon;
-  const label = area === "cidade" ? "Ir para a cidade" : "Ir para a vila remota";
-  const color = area === "cidade" ? MODELO_COLORS.presencial : MODELO_COLORS.remoto;
+function BotaoPortal({ portal, compact }: { portal: AcaoPortal; compact: boolean }) {
+  const mundo = useMundo();
+  const paraRemoto = mundo.tipo === "cidade";
+  const Icon = paraRemoto ? VillageIcon : CityIcon;
+  const color = paraRemoto ? MODELO_COLORS.remoto : MODELO_COLORS.presencial;
+  // Blur the button so SPACE (jump) doesn't click it again.
+  const usar = (e: MouseEvent<HTMLButtonElement>) => {
+    e.currentTarget.blur();
+    portal.aoUsar();
+  };
   return (
     <button
       type="button"
-      onClick={onGo}
-      disabled={disabled}
-      aria-label={compact ? `${label} (${info.abertas} vagas abertas)` : undefined}
-      className={`cartao-mapa pointer-events-auto flex items-center gap-2.5 rounded-xl text-left disabled:opacity-60 ${
+      onClick={usar}
+      aria-label={compact ? portal.rotulo : undefined}
+      className={`cartao-mapa pointer-events-auto flex items-center gap-2.5 rounded-xl text-left ${
         compact ? "size-11 justify-center" : "w-52 px-3 py-2"
       }`}
     >
@@ -291,24 +279,16 @@ function CartaoArea({ area, compact, disabled, onGo }: CartaoAreaProps) {
       </span>
       {!compact && (
         <span className="min-w-0">
-          <span className="block text-sm leading-tight font-bold">{label}</span>
-          <span className="block text-xs text-[#5c4630]">{info.abertas} vagas abertas</span>
+          <span className="block text-sm leading-tight font-bold">{portal.rotulo}</span>
+          <span className="block text-xs text-[#5c4630]">ou atravesse a ponte</span>
         </span>
       )}
     </button>
   );
 }
 
-function Navegacao({ narrow }: { narrow: boolean }) {
+function Navegacao({ narrow, portal }: { narrow: boolean; portal: AcaoPortal }) {
   const zoom = useGameStore((s) => s.zoom);
-  const travelTo = useGameStore((s) => s.travelTo);
-  const traveling = useGameStore((s) => s.travel !== null);
-
-  // Blur the button so SPACE (jump) doesn't click it again.
-  const go = (area: Area) => (e: MouseEvent<HTMLButtonElement>) => {
-    e.currentTarget.blur();
-    travelTo(area);
-  };
   const round =
     "pointer-events-auto grid size-10 place-items-center rounded-full border border-white/15 bg-[#1d2127]/85 text-lg font-semibold text-white shadow-lg transition hover:bg-[#2a2f37] active:scale-95";
 
@@ -328,15 +308,14 @@ function Navegacao({ narrow }: { narrow: boolean }) {
             </button>
           </div>
         )}
-        <CartaoArea area="cidade" compact={narrow} onGo={go("cidade")} disabled={traveling} />
-        <CartaoArea area="vila" compact={narrow} onGo={go("vila")} disabled={traveling} />
+        <BotaoPortal portal={portal} compact={narrow} />
       </div>
       <Minimap size={narrow ? 116 : 176} />
     </nav>
   );
 }
 
-export function Hud() {
+export function Hud({ portal }: { portal: AcaoPortal }) {
   const narrow = useMedia("(max-width: 767px)");
   const touch = useMedia("(pointer: coarse)");
   return (
@@ -345,7 +324,7 @@ export function Hud() {
       <Legenda />
       <BalaoProximidade touch={touch} />
       <Atalhos touch={touch} />
-      <Navegacao narrow={narrow} />
+      <Navegacao narrow={narrow} portal={portal} />
       <PergaminhoVaga />
     </>
   );

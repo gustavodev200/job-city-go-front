@@ -1,28 +1,14 @@
-"use client";
+import type { Metadata } from "next";
+import { Suspense } from "react";
+import { NivelCidade } from "@/components/city/NivelCidade";
 
-import dynamic from "next/dynamic";
-import { Trilha } from "@/components/brasil/Trilha";
-import { Hud } from "@/components/city/Hud";
-import { OutdoorOverlay } from "@/components/city/OutdoorOverlay";
+export const metadata: Metadata = { title: "Bairro Remoto · Job City Go" };
 
-const CityScene = dynamic(() => import("@/components/city/CityScene"), {
-  ssr: false,
-});
-// Reads the device clock: client only, so the server HTML never shows a different hour.
-const ControleHora = dynamic(() => import("@/components/city/ControleHora"), {
-  ssr: false,
-});
-
+/** Bairro Remoto nacional: todas as vagas remotas do país (`?de=` diz para onde voltar). */
 export default function BairroRemoto() {
   return (
-    <main className="relative h-dvh w-full overflow-hidden">
-      <CityScene areaInicial="vila" />
-      <Hud />
-      <OutdoorOverlay />
-      <ControleHora />
-      <div className="bloco-notas absolute top-3 left-3 z-30 rounded-lg px-3 py-1.5 md:top-4 md:left-4">
-        <Trilha remoto />
-      </div>
-    </main>
+    <Suspense fallback={<div className="h-dvh bg-sky-100" />}>
+      <NivelCidade mundoId="remoto" />
+    </Suspense>
   );
 }
