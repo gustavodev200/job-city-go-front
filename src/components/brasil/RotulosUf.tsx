@@ -5,7 +5,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { estados, UFS, type Uf } from "@/data/brasil/estados";
-import { AGREGADO_UF } from "@/lib/brasil/agregados";
+import { useAgregados } from "@/components/busca/usarBusca";
 import { ALTURA_DEGRAU, UF_GEO } from "@/lib/brasil/geo";
 import { useUfDaRota } from "@/lib/brasil/navegacao";
 import { ALTURA_ROTULO, larguraEstimada } from "@/lib/brasil/rotulos";
@@ -35,13 +35,14 @@ export function RotulosUf() {
   const [niveis, setNiveis] = useState<Partial<Record<Uf, number>>>({});
   const relogio = useRef(INTERVALO);
   const assinatura = useRef("");
+  const { porUf } = useAgregados();
 
   const pontos = useMemo(
     () =>
       UFS.filter((uf) => uf !== ufDaRota)
         .map((uf) => {
           const [x, z] = UF_GEO[uf].rotulo;
-          const n = AGREGADO_UF[uf].abertas;
+          const n = porUf[uf].abertas;
           const vagas = `${n} ${n === 1 ? "vaga" : "vagas"}`;
           return {
             uf,
@@ -53,7 +54,7 @@ export function RotulosUf() {
         })
         // Mais vagas primeiro: estados grandes de mercado ficam com o nome inteiro.
         .sort((a, b) => b.n - a.n),
-    [ufDaRota],
+    [ufDaRota, porUf],
   );
 
   const _v = useRef(new THREE.Vector3());

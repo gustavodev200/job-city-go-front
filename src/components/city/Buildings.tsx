@@ -4,6 +4,7 @@ import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { useIdsNoFiltro } from "@/components/busca/usarBusca";
 import { ORDEM_CATEGORIAS, type Categoria } from "@/data/vagas";
 import { N_CORES_CARRO, type Lote, type Mundo, type Rect, type VagaSpot } from "@/lib/cidade/mundo";
 import { useGameStore } from "@/stores/game";
@@ -26,16 +27,16 @@ const BADGE_PARTS = Object.fromEntries(ORDEM_CATEGORIAS.map((cat) => [cat, [FACA
   [(typeof FACADES)[Categoria]["badge"]]
 >;
 
-const instancia = (l: Lote): Instance => ({
-  x: l.x,
-  y: l.y,
-  z: l.z,
-  lit: l.vaga.status === "aberta",
-  dim: l.vaga.status === "encerrada",
-});
-
 /** Instâncias das construções do mundo, por tipo (uma chamada de desenho por tipo). */
-function construcoes(mundo: Mundo) {
+function construcoes(mundo: Mundo, noFiltro: ReadonlySet<string>) {
+  // Fora do filtro da busca (spec 004): apagado e esmaecido, como uma vaga encerrada.
+  const instancia = (l: Lote): Instance => ({
+    x: l.x,
+    y: l.y,
+    z: l.z,
+    lit: l.vaga.status === "aberta" && noFiltro.has(l.vaga.id),
+    dim: l.vaga.status === "encerrada" || !noFiltro.has(l.vaga.id),
+  });
   const daCidade = mundo.lotes.filter((l) => l.vaga.modelo !== "remoto");
   const porCategoria = (lista: Lote[]) =>
     Object.fromEntries(
@@ -46,7 +47,7 @@ function construcoes(mundo: Mundo) {
     ) as Record<Categoria, Instance[]>;
   return {
     porCategoria: porCategoria(daCidade),
-    hibridas: porCategoria(daCidade.filter((l) => l.vaga.modelo === "hibrido")),
+    hibridas: porCategoria(daCidade.filter((l) => l.vaga.modelo === "hibrido" && noFiltro.has(l.vaga.id))),
     remotas: mundo.lotes.filter((l) => l.vaga.modelo === "remoto").map(instancia),
     casas: FILLER_HOUSES.map((_, v) =>
       mundo.casas.filter((c) => c.variante === v).map((c) => ({ x: c.x, y: mundo.alturaDoPasso(c.x, c.z), z: c.z })),
@@ -207,7 +208,9 @@ function NearbyRing({ vagaSpots }: { vagaSpots: readonly VagaSpot[] }) {
 
 export function Buildings() {
   const mundo = useMundo();
-  const c = useMemo(() => construcoes(mundo), [mundo]);
+  const noFiltro = useIdsNoFiltro();
+  const c = useMemo(() => construcoes(mundo, noFiltro), [mundo, noFiltro]);
+  const visiveis = useMemo(() => mundo.spots.filter((s) => noFiltro.has(s.id)), [mundo, noFiltro]);
   return (
     <>
       {ORDEM_CATEGORIAS.map((cat) => (
@@ -225,8 +228,8 @@ export function Buildings() {
       <InstancedParts parts={REMOTE_HOUSE.parts} instances={c.remotas} />
       <InstancedParts parts={PLACA_ENCERRADA} instances={c.encerradas} shadows={false} />
       <ContactShadows colliders={mundo.colisores} />
-      <Markers vagaSpots={mundo.spots} />
-      <EtiquetasPatrocinado vagaSpots={mundo.spots} />
+      <Markers key={visiveis.length} vagaSpots={visiveis} />
+      <EtiquetasPatrocinado vagaSpots={visiveis} />
       <NearbyRing vagaSpots={mundo.spots} />
     </>
   );

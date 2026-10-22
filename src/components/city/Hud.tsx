@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore, type MouseEvent, type ReactNode } from "react";
+import { useFiltro, useIdsNoFiltro } from "@/components/busca/usarBusca";
 import { CATEGORIA_LABEL, ORDEM_CATEGORIAS, type Categoria, type Modelo } from "@/data/vagas";
+import { contarAtivos } from "@/lib/busca/filtro";
 import type { Mundo } from "@/lib/cidade/mundo";
 import { useGameStore } from "@/stores/game";
 import { CATEGORIA_COLORS, MODELO_COLORS, MODELO_LABEL } from "./cores";
@@ -70,6 +72,10 @@ function PlacaArea() {
   const mundo = useMundo();
   const area = useAreaAtual(mundo);
   const info = useMemo(() => contagens(mundo, area), [mundo, area]);
+  const filtrando = contarAtivos(useFiltro()) > 0;
+  const noFiltro = useIdsNoFiltro();
+  const naArea = mundo.vagas.filter((v) => (v.modelo === "remoto") === (area === "remoto") || mundo.tipo === "remoto");
+  const passam = naArea.filter((v) => noFiltro.has(v.id)).length;
   const AreaIcon = area === "cidade" ? CityIcon : VillageIcon;
   const nome = area === "remoto" ? "Bairro Remoto" : `${mundo.nome} · ${mundo.uf}`;
   return (
@@ -85,6 +91,11 @@ function PlacaArea() {
         </span>
         <div>
           <h1 aria-live="polite" className="fonte-serifa text-sm leading-tight font-bold md:text-lg">{nome}</h1>
+          {filtrando && (
+            <p className="text-[11px] text-[#ffe9c7] md:text-xs">
+              <strong className="text-white">{passam}</strong> de {naArea.length} vagas no filtro
+            </p>
+          )}
           <p className="text-[11px] text-[#ffe9c7] md:text-xs">
             <strong className="text-white">{info.abertas}</strong>{" "}
             {info.abertas === 1 ? "vaga" : "vagas"} {area === "remoto" ? "remotas " : ""}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { TOTAL_ABERTAS_BRASIL } from "@/lib/brasil/agregados";
+import { useAgregados } from "@/components/busca/usarBusca";
 import { useConfirmarUf } from "@/lib/brasil/navegacao";
 import { useMapaStore } from "@/stores/mapa";
 import { Trilha } from "./Trilha";
@@ -13,6 +13,7 @@ export function HudBrasil() {
   const ufEmFoco = useMapaStore((s) => s.ufEmFoco);
   const focar = useMapaStore((s) => s.focar);
   const confirmar = useConfirmarUf();
+  const { totalBrasil } = useAgregados();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && focar(null);
@@ -29,7 +30,7 @@ export function HudBrasil() {
         <div className="placa-madeira rounded-xl px-3 py-2 md:px-4 md:py-3">
           <h1 className="fonte-serifa text-sm leading-tight font-bold md:text-lg">Job City Go · Brasil</h1>
           <p className="text-[11px] text-[#ffe9c7] md:text-xs">
-            <strong className="text-white tabular-nums">{TOTAL_ABERTAS_BRASIL}</strong> vagas abertas no país
+            <strong className="text-white tabular-nums">{totalBrasil}</strong> vagas abertas no país
           </p>
         </div>
         <ListaEstados />

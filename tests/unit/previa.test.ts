@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { vagasBrasil } from "@/data/brasil/vagas";
-import { AGREGADO_CIDADE } from "@/lib/brasil/agregados";
+import { calcularPorCidade } from "@/lib/brasil/agregados";
 import { previaDaCidade } from "@/lib/brasil/previa";
 import { cidadePorId } from "@/lib/brasil/rotas";
+
+const AGREGADO_CIDADE = calcularPorCidade(vagasBrasil);
 
 const total = (id: string) => AGREGADO_CIDADE.get(id)!.abertas + AGREGADO_CIDADE.get(id)!.encerradas;
 const maior = [...AGREGADO_CIDADE.keys()].sort((a, b) => total(b) - total(a))[0];

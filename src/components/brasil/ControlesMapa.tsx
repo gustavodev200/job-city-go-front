@@ -4,7 +4,8 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useState } from "react";
 import { cidades } from "@/data/brasil/cidades";
-import { AGREGADO_REMOTO } from "@/lib/brasil/agregados";
+import { useAgregados } from "@/components/busca/usarBusca";
+import { useFiltrosStore } from "@/stores/filtros";
 import { useUfDaRota } from "@/lib/brasil/navegacao";
 import { hrefCidade, hrefRemoto } from "@/lib/brasil/rotas";
 import { useReidratar } from "@/stores/armazenamento";
@@ -19,6 +20,9 @@ const ControleHora = dynamic(() => import("@/components/city/ControleHora"), { s
 
 /** Controles comuns aos níveis Brasil e Estado (ficam no layout). */
 export function ControlesMapa() {
+  const { remoto } = useAgregados();
+  // "Posso morar no interior": o Bairro Remoto ganha destaque (US4-2).
+  const interior = useFiltrosStore((s) => s.interior);
   useReidratar(useMapaStore, usePerfilStore);
   const modo = useMapaStore((s) => s.modo);
   const alternarModo = useMapaStore((s) => s.alternarModo);
@@ -59,8 +63,11 @@ export function ControlesMapa() {
           </div>
         )}
         <div className="flex flex-wrap gap-2">
-          <Link href={hrefRemoto()} className="cartao-mapa rounded-lg px-3 py-2 text-sm font-semibold">
-            Bairro Remoto <span className="tabular-nums">({AGREGADO_REMOTO.abertas} vagas)</span>
+          <Link
+            href={hrefRemoto()}
+            className={`cartao-mapa rounded-lg px-3 py-2 text-sm font-semibold ${interior ? "outline-4 outline-offset-2 outline-amber-400" : ""}`}
+          >
+            Bairro Remoto <span className="tabular-nums">({remoto.abertas} vagas)</span>
           </Link>
           {cidade && hrefMinhaCidade ? (
             <>

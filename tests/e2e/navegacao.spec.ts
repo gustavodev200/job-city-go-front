@@ -21,5 +21,5 @@ test("link direto para estado válido abre o nível Estado", async ({ page }) =>
 test("estado inexistente volta ao Brasil com aviso", async ({ page }) => {
   await page.goto("/estado/xx");
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole("status")).toContainText("Não encontramos esse estado");
+  await expect(page.locator("[role=status]:not(aside *)")).toContainText("Não encontramos esse estado");
 });

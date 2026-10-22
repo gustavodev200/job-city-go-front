@@ -4,6 +4,9 @@ import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo } from "react";
 import { Trilha } from "@/components/brasil/Trilha";
+import { ChipFiltros } from "@/components/busca/ChipFiltros";
+import { PainelVagas } from "@/components/busca/PainelVagas";
+import { SincronizarFiltros } from "@/components/busca/usarBusca";
 import { ChegadaSchema, DeSchema, cidadePorId, hrefCidade, vagaSchema } from "@/lib/brasil/rotas";
 import { mundoDaCidade, mundoRemoto } from "@/lib/cidade/mundo";
 import { useReidratar } from "@/stores/armazenamento";
@@ -67,14 +70,24 @@ export function NivelCidade({ mundoId }: { mundoId: string }) {
 
   return (
     <MundoProvider value={mundo}>
-      <main className="relative h-dvh w-full overflow-hidden">
-        <CityScene key={`${mundo.id}:${inicio.x},${inicio.z}`} inicio={inicio} rotuloPortal={rotuloPortal} aoAtravessar={atravessar} />
-        <Hud portal={portal} />
-        <OutdoorOverlay />
-        <ControleHora />
-        <div className="bloco-notas absolute top-3 left-3 z-30 rounded-lg px-3 py-1.5 md:top-4 md:left-4">
-          <Trilha {...(mundo.tipo === "cidade" ? { cidadeId: mundo.id } : { remoto: true })} />
+      <main className="flex h-dvh w-full overflow-hidden">
+        <div className="relative min-w-0 flex-1 overflow-hidden">
+          <CityScene
+            key={`${mundo.id}:${inicio.x},${inicio.z}`}
+            inicio={inicio}
+            rotuloPortal={rotuloPortal}
+            aoAtravessar={atravessar}
+          />
+          <Hud portal={portal} />
+          <OutdoorOverlay />
+          <ControleHora />
+          <SincronizarFiltros />
+          <ChipFiltros />
+          <div className="bloco-notas absolute top-3 left-3 z-30 rounded-lg px-3 py-1.5 md:top-4 md:left-4">
+            <Trilha {...(mundo.tipo === "cidade" ? { cidadeId: mundo.id } : { remoto: true })} />
+          </div>
         </div>
+        <PainelVagas />
       </main>
     </MundoProvider>
   );

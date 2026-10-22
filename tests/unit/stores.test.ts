@@ -71,3 +71,20 @@ describe("preferências salvas", () => {
     expect(useMapaStore.getState().cidadeEmFoco).toBeNull();
   });
 });
+
+describe("filtros (spec 004)", () => {
+  it("alternar mantém a ordem canônica; limpar zera o filtro e mantém `iniciado`", async () => {
+    const { useFiltrosStore } = await import("@/stores/filtros");
+    const { FILTRO_VAZIO } = await import("@/lib/busca/filtro");
+    const s = useFiltrosStore.getState();
+    s.iniciarDaUrl(FILTRO_VAZIO);
+    s.alternar("categorias", "saude");
+    s.alternar("categorias", "comercio");
+    expect(useFiltrosStore.getState().categorias).toEqual(["comercio", "saude"]);
+    s.alternar("categorias", "saude");
+    expect(useFiltrosStore.getState().categorias).toEqual(["comercio"]);
+    s.definir({ interior: true });
+    s.limpar();
+    expect(useFiltrosStore.getState()).toMatchObject({ ...FILTRO_VAZIO, iniciado: true });
+  });
+});

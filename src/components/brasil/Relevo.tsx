@@ -4,7 +4,8 @@ import type { ThreeEvent } from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { UFS, type Uf } from "@/data/brasil/estados";
-import { CORES_CALOR, faixaCalor } from "@/lib/brasil/agregados";
+import { useAgregados } from "@/components/busca/usarBusca";
+import { CORES_CALOR } from "@/lib/brasil/agregados";
 import { celulaEm, construirMalhaRelevo } from "@/lib/brasil/geo";
 import { useConfirmarUf, useUfDaRota } from "@/lib/brasil/navegacao";
 import { useMapaStore } from "@/stores/mapa";
@@ -35,6 +36,7 @@ export function Relevo() {
   const focar = useMapaStore((s) => s.focar);
   const ufDaRota = useUfDaRota();
   const confirmar = useConfirmarUf();
+  const { faixa } = useAgregados();
 
   // Recolore só quando modo, foco ou nível mudam (≈ 70 mil vértices, poucos ms).
   useEffect(() => {
@@ -45,7 +47,7 @@ export function Relevo() {
       let fator = 1;
       if (uf === ufEmFoco) fator *= DESTAQUE;
       if (ufDaRota && uf !== ufDaRota) fator *= ATENUAR;
-      const calor = modo === "calor" ? _cor.set(CORES_CALOR[faixaCalor(uf)]) : null;
+      const calor = modo === "calor" ? _cor.set(CORES_CALOR[faixa(uf)]) : null;
       for (let v = inicio; v < fim; v++) {
         const f = fator * malha.sombra[v];
         const i = v * 3;
@@ -55,7 +57,7 @@ export function Relevo() {
       }
     }
     cor.needsUpdate = true;
-  }, [geometria, malha, modo, ufEmFoco, ufDaRota]);
+  }, [geometria, malha, modo, ufEmFoco, ufDaRota, faixa]);
 
   const ufNoPonto = (e: ThreeEvent<PointerEvent | MouseEvent>): Uf | null => celulaEm(e.point.x, e.point.z);
 

@@ -18,7 +18,7 @@ test("só teclado: lista de cidades de MG, foco, anúncio, Esc e entrar", async 
   await expect(segunda).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(segunda).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator("p[aria-live=polite]")).toContainText("vagas abertas");
+  await expect(page.locator("p[aria-live=polite]:not(aside *)")).toContainText("vagas abertas");
 
   await page.keyboard.press("Escape");
   await expect(segunda).toHaveAttribute("aria-pressed", "false");

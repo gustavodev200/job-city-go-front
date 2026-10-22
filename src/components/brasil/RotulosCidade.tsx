@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { Uf } from "@/data/brasil/estados";
-import { AGREGADO_CIDADE, cidadesDoEstado } from "@/lib/brasil/agregados";
+import { useAgregados } from "@/components/busca/usarBusca";
+import { agregadoDaCidade, cidadesDoEstado } from "@/lib/brasil/agregados";
 import { celulaDoPonto, topoDaCelula } from "@/lib/brasil/geo";
 import { hrefCidade } from "@/lib/brasil/rotas";
 import { agruparRotulos, ALTURA_ROTULO, larguraEstimada, type GrupoRotulo } from "@/lib/brasil/rotulos";
@@ -39,12 +40,13 @@ export function RotulosCidade({ uf, excedente = 0 }: { uf: Uf; excedente?: numbe
   const [grupos, setGrupos] = useState<GrupoRotulo[]>([]);
   const relogio = useRef(INTERVALO);
   const assinatura = useRef("");
+  const { porCidade } = useAgregados();
 
   const pontos = useMemo(
     () =>
       cidadesDoEstado(uf).map((c) => {
         const cel = celulaDoPonto(c.x, c.z);
-        const abertas = AGREGADO_CIDADE.get(c.id)!.abertas;
+        const abertas = agregadoDaCidade(porCidade, c.id).abertas;
         return {
           cidade: c,
           abertas,
@@ -52,7 +54,7 @@ export function RotulosCidade({ uf, excedente = 0 }: { uf: Uf; excedente?: numbe
           posicao: new THREE.Vector3(c.x, (cel ? topoDaCelula(cel.col, cel.lin) : 0) + ALTURA_SOBRE_CIDADE, c.z),
         };
       }),
-    [uf],
+    [uf, porCidade],
   );
   const porId = useMemo(() => new Map(pontos.map((p) => [p.cidade.id, p])), [pontos]);
 

@@ -4,13 +4,13 @@ import { CATEGORIA_COLORS, MODELO_COLORS, MODELO_LABEL } from "@/components/city
 import { CategoriaIcon } from "@/components/city/icons";
 import { estados, type Uf } from "@/data/brasil/estados";
 import { CATEGORIA_LABEL, type Modelo } from "@/data/vagas";
-import { AGREGADO_UF } from "@/lib/brasil/agregados";
+import { useAgregados } from "@/components/busca/usarBusca";
 
 const MODELOS: Modelo[] = ["presencial", "hibrido", "remoto"];
 
 /** Resumo de vagas abertas de uma UF (cartão do mapa e painel do estado). */
 export function ResumoUf({ uf, acao }: { uf: Uf; acao?: React.ReactNode }) {
-  const ag = AGREGADO_UF[uf];
+  const ag = useAgregados().porUf[uf];
   return (
     <div className="space-y-2.5">
       <div>

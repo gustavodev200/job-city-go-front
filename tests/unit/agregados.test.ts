@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { UFS } from "@/data/brasil/estados";
 import { vagasBrasil } from "@/data/brasil/vagas";
-import {
-  AGREGADO_REMOTO,
-  AGREGADO_UF,
-  calcularPorUf,
-  faixaCalor,
-  faixaDe,
-  LIMITES_FAIXAS,
-} from "@/lib/brasil/agregados";
+import { calcularAgregados, calcularPorUf, faixaCalorDe, faixaDe } from "@/lib/brasil/agregados";
+import type { Uf } from "@/data/brasil/estados";
+
+const AG = calcularAgregados(vagasBrasil);
+const AGREGADO_UF = AG.porUf;
+const AGREGADO_REMOTO = AG.remoto;
+const LIMITES_FAIXAS = AG.limites;
+const faixaCalor = (uf: Uf) => faixaCalorDe(AG, uf);
 
 describe("agregados de vagas", () => {
   it("total por UF = presenciais + híbridas abertas", () => {

@@ -2,12 +2,13 @@
 
 import { useRef, useState, type KeyboardEvent } from "react";
 import { estados, UFS_POR_NOME } from "@/data/brasil/estados";
-import { AGREGADO_UF } from "@/lib/brasil/agregados";
+import { useAgregados } from "@/components/busca/usarBusca";
 import { useConfirmarUf } from "@/lib/brasil/navegacao";
 import { useMapaStore } from "@/stores/mapa";
 
 /** Lista textual dos 27 estados: acesso por teclado/leitor de tela e para UFs pequenas no toque. */
 export function ListaEstados() {
+  const { porUf } = useAgregados();
   const [aberta, setAberta] = useState(false);
   const focar = useMapaStore((s) => s.focar);
   const confirmar = useConfirmarUf();
@@ -57,7 +58,7 @@ export function ListaEstados() {
               >
                 <span>{estados[uf].nome}</span>
                 <span className="font-bold tabular-nums">
-                  {AGREGADO_UF[uf].abertas}
+                  {porUf[uf].abertas}
                   <span className="sr-only"> vagas abertas</span>
                 </span>
               </button>

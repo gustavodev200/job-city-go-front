@@ -14,7 +14,7 @@ test.describe("nível Estado", () => {
     const cartao = page.getByRole("region", { name: "Vagas em Anápolis" });
     await expect(cartao).toContainText("vagas abertas");
     await expect(cartao.getByRole("list", { name: "Por categoria" })).toBeVisible();
-    await expect(page.locator("p[aria-live=polite]")).toContainText("Anápolis:");
+    await expect(page.locator("p[aria-live=polite]:not(aside *)")).toContainText("Anápolis:");
 
     await cartao.getByRole("link", { name: "Entrar na cidade" }).click();
     await expect(page).toHaveURL(/\/cidade\/anapolis-go$/);
@@ -57,7 +57,7 @@ test.describe("nível Estado", () => {
 
     await page.goto("/cidade/nao-existe");
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByRole("status")).toContainText("Não encontramos essa cidade");
+    await expect(page.locator("[role=status]:not(aside *)")).toContainText("Não encontramos essa cidade");
   });
 
   test("cidade 3D existente ganha a trilha", async ({ page }) => {

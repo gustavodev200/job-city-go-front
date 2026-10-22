@@ -2,7 +2,9 @@
 
 import { useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type { Uf } from "@/data/brasil/estados";
-import { AGREGADO_CIDADE, cidadesDoEstado } from "@/lib/brasil/agregados";
+import { useAgregados, useFiltro } from "@/components/busca/usarBusca";
+import { contarAtivos } from "@/lib/busca/filtro";
+import { agregadoDaCidade, cidadesDoEstado } from "@/lib/brasil/agregados";
 import { distanciaKm } from "@/lib/brasil/distancia";
 import { cidadePorId } from "@/lib/brasil/rotas";
 import { useMapaStore } from "@/stores/mapa";
@@ -21,17 +23,22 @@ export function ListaCidades({ uf }: { uf: Uf }) {
   const itens = useRef<(HTMLButtonElement | null)[]>([]);
   // O painel do desktop e a gaveta do celular montam a lista: ids únicos por instância.
   const titulo = useId();
+  const { porCidade } = useAgregados();
+  // Com filtro, cidade sem vaga aberta sai da lista (continua esmaecida no mapa).
+  const filtrando = contarAtivos(useFiltro()) > 0;
 
-  const lista = useMemo(() => {
+  const todas = useMemo(() => {
     const base = cidadesDoEstado(uf).map((c) => ({
       cidade: c,
-      ag: AGREGADO_CIDADE.get(c.id)!,
+      ag: agregadoDaCidade(porCidade, c.id),
       km: perfil ? distanciaKm(perfil, c) : null,
     }));
     if (ordem === "nome") return base.sort((a, b) => a.cidade.nome.localeCompare(b.cidade.nome, "pt-BR"));
     if (ordem === "distancia") return base.sort((a, b) => (a.km ?? 0) - (b.km ?? 0));
     return base; // já vem por vagas abertas
-  }, [uf, ordem, perfil]);
+  }, [uf, ordem, perfil, porCidade]);
+  const lista = filtrando ? todas.filter((i) => i.ag.abertas > 0) : todas;
+  const semVagas = todas.length - lista.length;
 
   const mover = (e: KeyboardEvent<HTMLButtonElement>, i: number) => {
     const passo = { ArrowDown: 1, ArrowUp: -1 }[e.key];
@@ -94,6 +101,11 @@ export function ListaCidades({ uf }: { uf: Uf }) {
           );
         })}
       </ul>
+      {semVagas > 0 && (
+        <p className="px-2 text-[12px] opacity-70">
+          {semVagas} {semVagas === 1 ? "cidade sem vagas" : "cidades sem vagas"} com esses filtros
+        </p>
+      )}
     </div>
   );
 }

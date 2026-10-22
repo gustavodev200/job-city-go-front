@@ -4,16 +4,16 @@ import Link from "next/link";
 import { CATEGORIA_COLORS, MODELO_COLORS, MODELO_LABEL } from "@/components/city/cores";
 import { CategoriaIcon, ModeloIcon } from "@/components/city/icons";
 import { CATEGORIA_LABEL, ORDEM_CATEGORIAS } from "@/data/vagas";
-import { AGREGADO_CIDADE } from "@/lib/brasil/agregados";
+import { useAgregados } from "@/components/busca/usarBusca";
+import { agregadoDaCidade, type AgregadoCidade } from "@/lib/brasil/agregados";
 import { cidadePorId, hrefCidade } from "@/lib/brasil/rotas";
 
 const MODELOS = ["presencial", "hibrido"] as const;
 
 /** Frase lida pelo leitor de tela ao focar a cidade. */
-export function fraseCidade(cidadeId: string) {
+export function fraseCidade(cidadeId: string, ag: AgregadoCidade) {
   const cidade = cidadePorId.get(cidadeId);
-  const ag = AGREGADO_CIDADE.get(cidadeId);
-  if (!cidade || !ag) return "";
+  if (!cidade) return "";
   const categorias = ORDEM_CATEGORIAS.filter((c) => ag.porCategoria[c])
     .map((c) => `${CATEGORIA_LABEL[c]} ${ag.porCategoria[c]}`)
     .join(", ");
@@ -32,8 +32,8 @@ export function CartaoCidade({
   entrar?: boolean;
 }) {
   const cidade = cidadePorId.get(cidadeId);
-  const ag = AGREGADO_CIDADE.get(cidadeId);
-  if (!cidade || !ag) return null;
+  const ag = agregadoDaCidade(useAgregados().porCidade, cidadeId);
+  if (!cidade) return null;
   const categorias = ORDEM_CATEGORIAS.filter((c) => ag.porCategoria[c]);
   const maximo = Math.max(1, ...categorias.map((c) => ag.porCategoria[c] ?? 0));
 

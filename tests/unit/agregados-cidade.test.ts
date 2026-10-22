@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { cidades } from "@/data/brasil/cidades";
 import { UFS } from "@/data/brasil/estados";
 import { vagasBrasil } from "@/data/brasil/vagas";
-import { AGREGADO_CIDADE, AGREGADO_UF, cidadesDoEstado } from "@/lib/brasil/agregados";
+import { calcularAgregados, cidadesDoEstado } from "@/lib/brasil/agregados";
+
+const { porCidade: AGREGADO_CIDADE, porUf: AGREGADO_UF } = calcularAgregados(vagasBrasil);
 
 describe("agregado por cidade (SC-004)", () => {
   it("bate com o filtro direto das vagas", () => {

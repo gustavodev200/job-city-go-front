@@ -35,6 +35,37 @@ export type Modelo = "presencial" | "hibrido" | "remoto";
 
 export type Status = "aberta" | "encerrada";
 
+export type Turno = "manha" | "tarde" | "noite" | "integral" | "escala";
+
+export const TURNO_LABEL: Record<Turno, string> = {
+  manha: "Manhã",
+  tarde: "Tarde",
+  noite: "Noite",
+  integral: "Integral",
+  escala: "Escala",
+};
+
+export const ORDEM_TURNOS: readonly Turno[] = ["manha", "tarde", "noite", "integral", "escala"];
+
+export type Contrato = "clt" | "estagio" | "aprendiz" | "pj" | "temporario";
+
+export const CONTRATO_LABEL: Record<Contrato, string> = {
+  clt: "CLT",
+  estagio: "Estágio",
+  aprendiz: "Aprendiz",
+  pj: "PJ",
+  temporario: "Temporário",
+};
+
+export const ORDEM_CONTRATOS: readonly Contrato[] = ["clt", "estagio", "aprendiz", "pj", "temporario"];
+
+export const MODELO_LABEL: Record<Modelo, string> = { presencial: "Presencial", hibrido: "Híbrida", remoto: "Remota" };
+
+export const ORDEM_MODELOS: readonly Modelo[] = ["presencial", "hibrido", "remoto"];
+
+/** "Hoje" do mock: datas de publicação são relativas a ela, nunca ao relógio (determinismo). */
+export const REFERENCIA_MOCK = "2026-10-01";
+
 type VagaBase = {
   id: string;
   titulo: string;
@@ -43,8 +74,13 @@ type VagaBase = {
   descricao: string;
   requisitos: string[];
   beneficios: string[];
-  faixaSalarial: { min: number; max: number };
+  /** Ausente = "A combinar". */
+  faixaSalarial?: { min: number; max: number };
   status: Status;
+  turno: Turno;
+  contrato: Contrato;
+  /** AAAA-MM-DD. */
+  publicadaEm: string;
   /** Destaque patrocinado (spec 009): ativo até a data (AAAA-MM-DD, inclusive). */
   destaque?: { ate: string };
 };
@@ -61,6 +97,8 @@ export type VagaHibrida = VagaBase & {
   cidade: string;
   /** Presença exigida, ex.: "1 dia por semana na cidade". */
   frequencia: string;
+  /** Presença em dias por semana (1 vez por mês = 0,25) — usado por "Posso morar no interior". */
+  diasPorSemana: number;
 };
 
 /** De onde a pessoa pode trabalhar numa vaga remota. */
@@ -93,6 +131,9 @@ export const vagas: Vaga[] = [
     cidade: "Goiânia",
     faixaSalarial: { min: 3500, max: 4800 },
     status: "aberta",
+    turno: "manha",
+    contrato: "clt",
+    publicadaEm: "2026-09-28",
     destaque: { ate: "2099-12-31" },
   },
   {
@@ -108,6 +149,9 @@ export const vagas: Vaga[] = [
     cidade: "Goiânia",
     faixaSalarial: { min: 2000, max: 3200 },
     status: "aberta",
+    turno: "tarde",
+    contrato: "clt",
+    publicadaEm: "2026-09-25",
   },
   {
     id: "vg-003",
@@ -122,6 +166,9 @@ export const vagas: Vaga[] = [
     cidade: "Aparecida de Goiânia",
     faixaSalarial: { min: 4500, max: 6500 },
     status: "aberta",
+    turno: "integral",
+    contrato: "clt",
+    publicadaEm: "2026-09-20",
   },
   {
     id: "vg-004",
@@ -136,6 +183,9 @@ export const vagas: Vaga[] = [
     cidade: "Anápolis",
     faixaSalarial: { min: 2600, max: 3300 },
     status: "aberta",
+    turno: "noite",
+    contrato: "clt",
+    publicadaEm: "2026-09-30",
   },
   {
     id: "vg-005",
@@ -148,8 +198,10 @@ export const vagas: Vaga[] = [
     modelo: "presencial",
     categoria: "bairro",
     cidade: "Goiânia",
-    faixaSalarial: { min: 1800, max: 2200 },
     status: "aberta",
+    turno: "tarde",
+    contrato: "temporario",
+    publicadaEm: "2026-09-15",
   },
   {
     id: "vg-006",
@@ -164,6 +216,9 @@ export const vagas: Vaga[] = [
     cidade: "Goiânia",
     faixaSalarial: { min: 1900, max: 2400 },
     status: "encerrada",
+    turno: "manha",
+    contrato: "clt",
+    publicadaEm: "2026-08-10",
   },
   {
     id: "vg-007",
@@ -177,8 +232,12 @@ export const vagas: Vaga[] = [
     categoria: "escritorio",
     cidade: "Goiânia",
     frequencia: "2 dias por semana no escritório",
+    diasPorSemana: 2,
     faixaSalarial: { min: 4200, max: 5800 },
     status: "aberta",
+    turno: "integral",
+    contrato: "clt",
+    publicadaEm: "2026-09-22",
   },
   {
     id: "vg-008",
@@ -192,8 +251,12 @@ export const vagas: Vaga[] = [
     categoria: "comercio",
     cidade: "Goiânia",
     frequencia: "3 dias por semana na loja",
+    diasPorSemana: 3,
     faixaSalarial: { min: 4000, max: 5500 },
     status: "aberta",
+    turno: "integral",
+    contrato: "clt",
+    publicadaEm: "2026-09-05",
   },
   {
     id: "vg-009",
@@ -208,6 +271,9 @@ export const vagas: Vaga[] = [
     cidade: "Goiânia",
     faixaSalarial: { min: 2200, max: 2900 },
     status: "aberta",
+    turno: "integral",
+    contrato: "clt",
+    publicadaEm: "2026-09-18",
   },
   {
     id: "vg-010",
@@ -222,6 +288,9 @@ export const vagas: Vaga[] = [
     cidade: "Anápolis",
     faixaSalarial: { min: 1900, max: 2300 },
     status: "encerrada",
+    turno: "manha",
+    contrato: "temporario",
+    publicadaEm: "2026-08-12",
   },
   {
     id: "vg-011",
@@ -235,8 +304,12 @@ export const vagas: Vaga[] = [
     categoria: "escola",
     cidade: "Goiânia",
     frequencia: "1 dia por semana na escola",
+    diasPorSemana: 1,
     faixaSalarial: { min: 5000, max: 6500 },
     status: "aberta",
+    turno: "manha",
+    contrato: "clt",
+    publicadaEm: "2026-09-26",
   },
   {
     id: "vg-012",
@@ -251,6 +324,9 @@ export const vagas: Vaga[] = [
     cidade: "Aparecida de Goiânia",
     faixaSalarial: { min: 2800, max: 3500 },
     status: "aberta",
+    turno: "escala",
+    contrato: "clt",
+    publicadaEm: "2026-09-29",
   },
   {
     id: "vg-013",
@@ -264,8 +340,12 @@ export const vagas: Vaga[] = [
     categoria: "escritorio",
     cidade: "Goiânia",
     frequencia: "2 dias por semana no escritório",
+    diasPorSemana: 2,
     faixaSalarial: { min: 6000, max: 9000 },
     status: "aberta",
+    turno: "integral",
+    contrato: "pj",
+    publicadaEm: "2026-09-27",
   },
   {
     id: "vg-014",
@@ -278,8 +358,10 @@ export const vagas: Vaga[] = [
     modelo: "presencial",
     categoria: "bairro",
     cidade: "Goiânia",
-    faixaSalarial: { min: 2000, max: 3500 },
     status: "aberta",
+    turno: "tarde",
+    contrato: "pj",
+    publicadaEm: "2026-09-07",
   },
   {
     id: "vg-015",
@@ -294,6 +376,9 @@ export const vagas: Vaga[] = [
     cidade: "Aparecida de Goiânia",
     faixaSalarial: { min: 2500, max: 3200 },
     status: "aberta",
+    turno: "integral",
+    contrato: "temporario",
+    publicadaEm: "2026-09-12",
   },
   {
     id: "vg-016",
@@ -307,8 +392,12 @@ export const vagas: Vaga[] = [
     categoria: "galpao",
     cidade: "Anápolis",
     frequencia: "1 dia por semana no galpão",
+    diasPorSemana: 1,
     faixaSalarial: { min: 3800, max: 5000 },
     status: "aberta",
+    turno: "integral",
+    contrato: "clt",
+    publicadaEm: "2026-09-24",
   },
   {
     id: "vg-017",
@@ -323,6 +412,9 @@ export const vagas: Vaga[] = [
     cidade: "Goiânia",
     faixaSalarial: { min: 2100, max: 2700 },
     status: "aberta",
+    turno: "noite",
+    contrato: "clt",
+    publicadaEm: "2026-09-21",
   },
   {
     id: "vg-018",
@@ -337,6 +429,9 @@ export const vagas: Vaga[] = [
     cidade: "Goiânia",
     faixaSalarial: { min: 1900, max: 2300 },
     status: "encerrada",
+    turno: "manha",
+    contrato: "clt",
+    publicadaEm: "2026-08-05",
   },
   {
     id: "vg-019",
@@ -350,8 +445,12 @@ export const vagas: Vaga[] = [
     categoria: "saude",
     cidade: "Goiânia",
     frequencia: "2 dias por semana na clínica",
+    diasPorSemana: 2,
     faixaSalarial: { min: 3800, max: 5200 },
     status: "aberta",
+    turno: "tarde",
+    contrato: "clt",
+    publicadaEm: "2026-09-17",
   },
   {
     id: "vg-020",
@@ -366,6 +465,9 @@ export const vagas: Vaga[] = [
     cidade: "Trindade",
     faixaSalarial: { min: 1800, max: 2200 },
     status: "aberta",
+    turno: "manha",
+    contrato: "estagio",
+    publicadaEm: "2026-09-23",
   },
   {
     id: "vg-021",
@@ -379,8 +481,12 @@ export const vagas: Vaga[] = [
     categoria: "obra",
     cidade: "Aparecida de Goiânia",
     frequencia: "3 dias por semana no canteiro",
+    diasPorSemana: 3,
     faixaSalarial: { min: 8000, max: 12000 },
     status: "aberta",
+    turno: "integral",
+    contrato: "clt",
+    publicadaEm: "2026-09-10",
   },
   {
     id: "vg-022",
@@ -394,8 +500,12 @@ export const vagas: Vaga[] = [
     categoria: "bairro",
     cidade: "Goiânia",
     frequencia: "1 dia por semana na loja",
+    diasPorSemana: 1,
     faixaSalarial: { min: 3500, max: 4500 },
     status: "encerrada",
+    turno: "integral",
+    contrato: "clt",
+    publicadaEm: "2026-08-20",
   },
   {
     id: "vg-023",
@@ -410,6 +520,9 @@ export const vagas: Vaga[] = [
     cidade: "Goiânia",
     faixaSalarial: { min: 1700, max: 2100 },
     status: "aberta",
+    turno: "escala",
+    contrato: "clt",
+    publicadaEm: "2026-09-06",
   },
   {
     id: "vg-024",
@@ -424,6 +537,9 @@ export const vagas: Vaga[] = [
     cidade: "Goiânia",
     faixaSalarial: { min: 3200, max: 4200 },
     status: "aberta",
+    turno: "tarde",
+    contrato: "clt",
+    publicadaEm: "2026-09-14",
   },
   {
     id: "vg-025",
@@ -437,8 +553,12 @@ export const vagas: Vaga[] = [
     categoria: "escritorio",
     cidade: "Goiânia",
     frequencia: "3 dias por semana no escritório",
+    diasPorSemana: 3,
     faixaSalarial: { min: 5000, max: 7000 },
     status: "aberta",
+    turno: "integral",
+    contrato: "clt",
+    publicadaEm: "2026-09-08",
   },
   {
     id: "vg-026",
@@ -453,6 +573,9 @@ export const vagas: Vaga[] = [
     cidade: "Senador Canedo",
     faixaSalarial: { min: 4200, max: 5200 },
     status: "aberta",
+    turno: "noite",
+    contrato: "clt",
+    publicadaEm: "2026-09-30",
   },
   {
     id: "vg-027",
@@ -467,6 +590,9 @@ export const vagas: Vaga[] = [
     cidade: "Anápolis",
     faixaSalarial: { min: 2500, max: 3100 },
     status: "aberta",
+    turno: "manha",
+    contrato: "clt",
+    publicadaEm: "2026-09-19",
   },
   {
     id: "vg-028",
@@ -479,8 +605,10 @@ export const vagas: Vaga[] = [
     modelo: "presencial",
     categoria: "bairro",
     cidade: "Goiânia",
-    faixaSalarial: { min: 1800, max: 2400 },
     status: "aberta",
+    turno: "tarde",
+    contrato: "pj",
+    publicadaEm: "2026-09-11",
   },
   {
     id: "vg-029",
@@ -495,6 +623,9 @@ export const vagas: Vaga[] = [
     cidade: "Goiânia",
     faixaSalarial: { min: 2800, max: 3600 },
     status: "encerrada",
+    turno: "integral",
+    contrato: "temporario",
+    publicadaEm: "2026-08-15",
   },
   {
     id: "vg-030",
@@ -508,8 +639,12 @@ export const vagas: Vaga[] = [
     categoria: "escritorio",
     cidade: "Goiânia",
     frequencia: "2 dias por semana na agência",
+    diasPorSemana: 2,
     faixaSalarial: { min: 3500, max: 5000 },
     status: "aberta",
+    turno: "integral",
+    contrato: "pj",
+    publicadaEm: "2026-09-16",
   },
 
   // ── Vila remota ───────────────────────────────────────────────────────
@@ -525,6 +660,9 @@ export const vagas: Vaga[] = [
     abrangencia: { tipo: "brasil" },
     faixaSalarial: { min: 9000, max: 14000 },
     status: "encerrada",
+    turno: "integral",
+    contrato: "pj",
+    publicadaEm: "2026-08-04",
   },
   {
     id: "vg-032",
@@ -538,6 +676,9 @@ export const vagas: Vaga[] = [
     abrangencia: { tipo: "brasil" },
     faixaSalarial: { min: 7000, max: 11000 },
     status: "aberta",
+    turno: "integral",
+    contrato: "clt",
+    publicadaEm: "2026-09-27",
   },
   {
     id: "vg-033",
@@ -551,6 +692,9 @@ export const vagas: Vaga[] = [
     abrangencia: { tipo: "ufs", ufs: ["GO"] },
     faixaSalarial: { min: 2200, max: 2800 },
     status: "aberta",
+    turno: "manha",
+    contrato: "clt",
+    publicadaEm: "2026-09-20",
   },
   {
     id: "vg-034",
@@ -562,8 +706,10 @@ export const vagas: Vaga[] = [
     beneficios: ["Horário flexível", "Auxílio home office", "Day off no aniversário"],
     modelo: "remoto",
     abrangencia: { tipo: "brasil" },
-    faixaSalarial: { min: 3000, max: 4500 },
     status: "aberta",
+    turno: "tarde",
+    contrato: "pj",
+    publicadaEm: "2026-09-13",
   },
   {
     id: "vg-035",
@@ -577,6 +723,9 @@ export const vagas: Vaga[] = [
     abrangencia: { tipo: "ufs", ufs: ["GO"] },
     faixaSalarial: { min: 1800, max: 2300 },
     status: "aberta",
+    turno: "tarde",
+    contrato: "clt",
+    publicadaEm: "2026-09-25",
   },
   {
     id: "vg-036",
@@ -590,6 +739,9 @@ export const vagas: Vaga[] = [
     abrangencia: { tipo: "brasil" },
     faixaSalarial: { min: 6000, max: 9500 },
     status: "aberta",
+    turno: "integral",
+    contrato: "pj",
+    publicadaEm: "2026-09-29",
   },
   {
     id: "vg-037",
@@ -603,6 +755,9 @@ export const vagas: Vaga[] = [
     abrangencia: { tipo: "ufs", ufs: ["GO"] },
     faixaSalarial: { min: 2500, max: 3200 },
     status: "encerrada",
+    turno: "manha",
+    contrato: "temporario",
+    publicadaEm: "2026-08-18",
   },
   {
     id: "vg-038",
@@ -616,6 +771,9 @@ export const vagas: Vaga[] = [
     abrangencia: { tipo: "brasil" },
     faixaSalarial: { min: 7500, max: 12000 },
     status: "aberta",
+    turno: "integral",
+    contrato: "clt",
+    publicadaEm: "2026-09-22",
   },
   {
     id: "vg-039",
@@ -629,6 +787,9 @@ export const vagas: Vaga[] = [
     abrangencia: { tipo: "ufs", ufs: ["GO"] },
     faixaSalarial: { min: 3500, max: 5000 },
     status: "aberta",
+    turno: "integral",
+    contrato: "pj",
+    publicadaEm: "2026-09-09",
   },
   {
     id: "vg-040",
@@ -642,5 +803,8 @@ export const vagas: Vaga[] = [
     abrangencia: { tipo: "ufs", ufs: ["DF", "GO"] },
     faixaSalarial: { min: 5000, max: 7500 },
     status: "aberta",
+    turno: "integral",
+    contrato: "clt",
+    publicadaEm: "2026-09-03",
   },
 ];

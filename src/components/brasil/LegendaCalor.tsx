@@ -1,9 +1,11 @@
 "use client";
 
-import { CORES_CALOR, LIMITES_FAIXAS } from "@/lib/brasil/agregados";
+import { useAgregados } from "@/components/busca/usarBusca";
+import { CORES_CALOR } from "@/lib/brasil/agregados";
 
 /** Faixas do modo Calor: "a partir de N vagas abertas". */
 export function LegendaCalor() {
+  const { limites: LIMITES_FAIXAS } = useAgregados();
   return (
     <div className="cartao-mapa rounded-lg px-3 py-2 text-[12px]">
       <p className="mb-1 font-semibold">Vagas abertas por estado</p>

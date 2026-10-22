@@ -1,8 +1,15 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { cidades } from "@/data/brasil/cidades";
 import { UFS } from "@/data/brasil/estados";
 import { gerarVagasBrasil, vagasBrasil } from "@/data/brasil/vagas";
-import { CATEGORIA_LABEL, vagas as vagasCidadeAtual } from "@/data/vagas";
+import {
+  CATEGORIA_LABEL,
+  ORDEM_CONTRATOS,
+  ORDEM_TURNOS,
+  REFERENCIA_MOCK,
+  vagas as vagasCidadeAtual,
+} from "@/data/vagas";
 
 const cidadePorId = new Map(cidades.map((c) => [c.id, c]));
 
@@ -49,5 +56,59 @@ describe("vagas nacionais (mock)", () => {
       expect(cidade?.uf, v.id).toBe(v.uf);
       expect(Object.keys(CATEGORIA_LABEL)).toContain(v.categoria);
     }
+  });
+});
+
+describe("campos da busca (spec 004)", () => {
+  const abertas = vagasBrasil.filter((v) => v.status === "aberta");
+
+  it("não altera ids, cidades, status, modelo e categoria das specs 001–003", () => {
+    const s = vagasBrasil
+      .map((v) => [v.id, v.status, v.cidadeId, v.uf, v.modelo, v.modelo === "remoto" ? "" : v.categoria].join("|"))
+      .join("\n");
+    expect(`${vagasBrasil.length} ${createHash("sha256").update(s).digest("hex")}`).toBe(
+      "714 746a9e6335c471db4584ba305ae54875c2c2761767e42d4e090dd1f0efc78989",
+    );
+  });
+
+  it("cada turno e contrato aparece em ≥ 10 vagas abertas", () => {
+    for (const t of ORDEM_TURNOS) expect(abertas.filter((v) => v.turno === t).length, t).toBeGreaterThanOrEqual(10);
+    for (const c of ORDEM_CONTRATOS) expect(abertas.filter((v) => v.contrato === c).length, c).toBeGreaterThanOrEqual(10);
+  });
+
+  it("≥ 10% sem salário; com salário, 0 < min ≤ max ≤ 100 000", () => {
+    expect(vagasBrasil.filter((v) => !v.faixaSalarial).length / vagasBrasil.length).toBeGreaterThanOrEqual(0.1);
+    for (const v of vagasBrasil) {
+      if (!v.faixaSalarial) continue;
+      expect(v.faixaSalarial.min, v.id).toBeGreaterThan(0);
+      expect(v.faixaSalarial.min, v.id).toBeLessThanOrEqual(v.faixaSalarial.max);
+      expect(v.faixaSalarial.max, v.id).toBeLessThanOrEqual(100_000);
+    }
+  });
+
+  it("publicação nos 60 dias até a referência do mock", () => {
+    for (const v of vagasBrasil) {
+      expect(v.publicadaEm, v.id).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(v.publicadaEm <= REFERENCIA_MOCK, v.id).toBe(true);
+      expect(v.publicadaEm >= "2026-08-03", v.id).toBe(true);
+    }
+  });
+
+  it("diasPorSemana coerente com o texto da frequência", () => {
+    const hibridas = vagasBrasil.filter((v) => v.modelo === "hibrido");
+    for (const v of hibridas) {
+      if (v.modelo !== "hibrido") continue;
+      const esperado = v.frequencia.includes("vez por mês") ? 0.25 : Number(v.frequencia.match(/^(\d+) dias?/)?.[1]);
+      expect(v.diasPorSemana, v.id).toBe(esperado);
+    }
+    expect(hibridas.some((v) => v.modelo === "hibrido" && v.diasPorSemana <= 1)).toBe(true);
+    expect(hibridas.some((v) => v.modelo === "hibrido" && v.diasPorSemana > 1)).toBe(true);
+  });
+
+  it("remotas nunca em escala; existe aberta Saúde + CLT + noite", () => {
+    expect(vagasBrasil.some((v) => v.modelo === "remoto" && v.turno === "escala")).toBe(false);
+    expect(
+      abertas.some((v) => v.modelo !== "remoto" && v.categoria === "saude" && v.contrato === "clt" && v.turno === "noite"),
+    ).toBe(true);
   });
 });

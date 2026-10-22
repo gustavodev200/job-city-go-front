@@ -7,7 +7,8 @@ import { useLayoutEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { cicloRuntime } from "@/components/city/ciclo";
 import { cidades } from "@/data/brasil/cidades";
-import { AGREGADO_REMOTO } from "@/lib/brasil/agregados";
+import { useAgregados } from "@/components/busca/usarBusca";
+import { useFiltrosStore } from "@/stores/filtros";
 import { ALTURA_DEGRAU } from "@/lib/brasil/geo";
 import { hrefRemoto } from "@/lib/brasil/rotas";
 
@@ -30,6 +31,8 @@ const TORRES: [number, number, number][] = [
 const LUZ = new THREE.MeshStandardMaterial({ color: "#e9f3ff", emissive: "#7cc4ff", emissiveIntensity: 0.3, flatShading: true });
 
 export function IlhaRemota() {
+  const { remoto } = useAgregados();
+  const interior = useFiltrosStore((s) => s.interior);
   const router = useRouter();
   const [hover, setHover] = useState(false);
   useFrame(() => {
@@ -60,7 +63,7 @@ export function IlhaRemota() {
         onPointerOut={() => setHover(false)}
       >
         <boxGeometry args={[LARGURA, ALTURA + 0.3, PROFUNDIDADE]} />
-        <meshStandardMaterial color={hover ? "#c7e7a0" : "#a9d38a"} flatShading />
+        <meshStandardMaterial color={hover || interior ? "#c7e7a0" : "#a9d38a"} emissive={interior ? "#f2c230" : "#000000"} emissiveIntensity={interior ? 0.35 : 0} flatShading />
       </mesh>
       <instancedMesh ref={torres} args={[undefined, LUZ, TORRES.length]}>
         <boxGeometry args={[0.8, 1, 0.8]} />
@@ -69,9 +72,11 @@ export function IlhaRemota() {
         <button
           type="button"
           onClick={ir}
-          className="whitespace-nowrap rounded-full bg-sky-900/80 px-2.5 py-0.5 text-[13px] font-semibold text-sky-50 shadow-sm hover:bg-sky-800 focus-visible:outline-2 focus-visible:outline-sky-300"
+          className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[13px] font-semibold shadow-sm focus-visible:outline-2 focus-visible:outline-sky-300 ${
+            interior ? "bg-amber-300 text-stone-900 ring-2 ring-amber-500" : "bg-sky-900/80 text-sky-50 hover:bg-sky-800"
+          }`}
         >
-          Bairro Remoto · {AGREGADO_REMOTO.abertas}
+          Bairro Remoto · {remoto.abertas}
         </button>
       </Html>
     </group>

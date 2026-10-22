@@ -2,7 +2,16 @@
 // mesma lista. As vagas escritas à mão de data/vagas.ts entram com o mesmo id. É a
 // fonte de vagas de todos os níveis (mapa, estado, cidade e Bairro Remoto).
 import { criarAleatorio, type Aleatorio } from "@/lib/aleatorio";
-import { vagas as vagasCidadeAtual, type Abrangencia, type Categoria, type Status, type Vaga } from "@/data/vagas";
+import {
+  REFERENCIA_MOCK,
+  vagas as vagasCidadeAtual,
+  type Abrangencia,
+  type Categoria,
+  type Contrato,
+  type Status,
+  type Turno,
+  type Vaga,
+} from "@/data/vagas";
 import { cidades } from "./cidades";
 import { estados, UFS, type Uf } from "./estados";
 import type { Cidade, Porte } from "./tipos";
@@ -24,7 +33,9 @@ const TAXA_HIBRIDAS = 0.2;
 
 const PESO_PORTE: Record<Porte, number> = { capital: 12, grande: 7, media: 4, pequena: 2 };
 const UFS_DENSAS: ReadonlySet<Uf> = new Set<Uf>(["SP", "MG", "RJ", "PR", "SC", "RS"]);
-const FREQUENCIAS = ["1 dia por semana", "2 dias por semana", "1 vez por mês"];
+/** Frequência de presença das híbridas geradas → dias por semana. */
+const FREQUENCIAS: Record<string, number> = { "1 dia por semana": 1, "2 dias por semana": 2, "1 vez por mês": 0.25 };
+const TEXTOS_FREQUENCIA = Object.keys(FREQUENCIAS);
 
 type Modelo = {
   titulos: string[];
@@ -115,6 +126,91 @@ function sortearVaga(a: Aleatorio, modelo: Modelo, cidade: string) {
   };
 }
 
+// ── Campos da busca (spec 004) ──────────────────────────────────────────
+// Sorteados num pós-passo com outra semente: o fluxo acima não muda, então ids,
+// cidades, status e contagens das specs 001–003 continuam os mesmos.
+
+type CamposBusca = "turno" | "contrato" | "publicadaEm";
+type SemCamposBusca<T> = T extends unknown ? Omit<T, CamposBusca> & Partial<Pick<T & Vaga, CamposBusca>> : never;
+/** Vaga antes do pós-passo: as escritas à mão já vêm completas; as geradas, não. */
+type Rascunho = SemCamposBusca<VagaNacional>;
+
+const TURNOS_POR_CATEGORIA: Record<Categoria, Turno[]> = {
+  comercio: ["manha", "tarde", "tarde", "escala", "integral"],
+  escritorio: ["integral", "integral", "manha", "tarde"],
+  saude: ["escala", "escala", "noite", "manha", "tarde"],
+  galpao: ["noite", "manha", "tarde", "escala", "integral"],
+  obra: ["integral", "integral", "manha"],
+  escola: ["manha", "tarde", "manha", "integral", "noite"],
+  bairro: ["tarde", "manha", "escala", "integral", "noite"],
+};
+const TURNOS_REMOTOS: Turno[] = ["integral", "integral", "manha", "tarde"];
+
+const PESOS_CONTRATO: [Contrato, number][] = [
+  ["clt", 0.6],
+  ["temporario", 0.13],
+  ["estagio", 0.1],
+  ["pj", 0.1],
+  ["aprendiz", 0.07],
+];
+// Escritório e remotas concentram PJ.
+const PESOS_CONTRATO_PJ: [Contrato, number][] = [
+  ["clt", 0.5],
+  ["pj", 0.25],
+  ["estagio", 0.1],
+  ["temporario", 0.1],
+  ["aprendiz", 0.05],
+];
+const TAXA_SEM_SALARIO = 0.15;
+const DIAS_PUBLICACAO = 60;
+/** Estágio e aprendiz pagam bolsa: no máximo 60% do teto da categoria. */
+const FATOR_BOLSA = 0.6;
+
+function sortearPeso<T>(a: Aleatorio, pesos: [T, number][]): T {
+  let r = a.proximo();
+  for (const [valor, peso] of pesos) {
+    if (r < peso) return valor;
+    r -= peso;
+  }
+  return pesos[0][0];
+}
+
+function diasAntes(dataIso: string, dias: number) {
+  const d = new Date(`${dataIso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - dias);
+  return d.toISOString().slice(0, 10);
+}
+
+function completarCamposBusca(lista: Rascunho[], semente: number): VagaNacional[] {
+  const a = criarAleatorio(semente);
+  return lista.map((v): VagaNacional => {
+    if (v.turno && v.contrato && v.publicadaEm) return v as VagaNacional;
+    const remota = v.modelo === "remoto";
+    const modelo = remota ? REMOTAS : MODELOS[v.categoria];
+    const contrato = sortearPeso(a, remota || v.categoria === "escritorio" ? PESOS_CONTRATO_PJ : PESOS_CONTRATO);
+    const turno = a.escolher(remota ? TURNOS_REMOTOS : TURNOS_POR_CATEGORIA[v.categoria]);
+    const publicadaEm = diasAntes(REFERENCIA_MOCK, a.inteiro(0, DIAS_PUBLICACAO - 1));
+    const semSalario = a.proximo() < TAXA_SEM_SALARIO;
+    let faixaSalarial = v.faixaSalarial;
+    if (faixaSalarial && (contrato === "estagio" || contrato === "aprendiz")) {
+      const min = Math.round((modelo.salario[0] * FATOR_BOLSA) / 100) * 100;
+      faixaSalarial = {
+        min,
+        max: Math.min(Math.round((min * 1.3) / 100) * 100, modelo.salario[1] * FATOR_BOLSA),
+      };
+    }
+    const completa = {
+      ...v,
+      turno,
+      contrato,
+      publicadaEm,
+      faixaSalarial,
+    } as VagaNacional;
+    if (semSalario) delete completa.faixaSalarial;
+    return completa;
+  });
+}
+
 function pesoCidade(c: Cidade) {
   const denso = UFS_DENSAS.has(c.uf) || (c.capital && estados[c.uf].regiao === "Nordeste");
   return PESO_PORTE[c.porte] * (denso ? 1.5 : 1);
@@ -132,17 +228,20 @@ function converterCidadeAtual(): VagaNacional[] {
 
 export function gerarVagasBrasil(semente = SEMENTE): VagaNacional[] {
   const a = criarAleatorio(semente);
-  const lista = converterCidadeAtual();
+  const lista: Rascunho[] = converterCidadeAtual();
   let n = 0;
   const novoId = () => `vn-${String(++n).padStart(4, "0")}`;
 
-  const criarNaCidade = (cidade: Cidade, forcarAberta = false): VagaNacional => {
+  const criarNaCidade = (cidade: Cidade, forcarAberta = false): Rascunho => {
     const categoria = a.escolher(CATEGORIAS);
     const base = sortearVaga(a, MODELOS[categoria], cidade.nome);
     if (forcarAberta) base.status = "aberta";
     const comum = { id: novoId(), ...base, categoria, cidade: cidade.nome, uf: cidade.uf, cidadeId: cidade.id };
     return a.proximo() < TAXA_HIBRIDAS
-      ? { ...comum, modelo: "hibrido", frequencia: a.escolher(FREQUENCIAS) }
+      ? (() => {
+          const frequencia = a.escolher(TEXTOS_FREQUENCIA);
+          return { ...comum, modelo: "hibrido", frequencia, diasPorSemana: FREQUENCIAS[frequencia] };
+        })()
       : { ...comum, modelo: "presencial" };
   };
 
@@ -179,7 +278,7 @@ export function gerarVagasBrasil(semente = SEMENTE): VagaNacional[] {
   // Uma remota patrocinada para demonstrar o destaque (a spec 009 cria os de verdade).
   const patrocinada = lista.find((v) => v.modelo === "remoto" && v.status === "aberta" && v.id.startsWith("vn-"));
   if (patrocinada) patrocinada.destaque = { ate: "2099-12-31" };
-  return lista;
+  return completarCamposBusca(lista, semente + 1);
 }
 
 export const vagasBrasil = gerarVagasBrasil();

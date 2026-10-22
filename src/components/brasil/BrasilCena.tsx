@@ -10,6 +10,7 @@ import { cidadePorId } from "@/lib/brasil/rotas";
 import { useIsNarrow } from "@/lib/movimento";
 import { useMapaStore } from "@/stores/mapa";
 import { Aglomerados } from "./Aglomerados";
+import { AnelRaio } from "./AnelRaio";
 import { Bordas } from "./Bordas";
 import { CameraMapa } from "./CameraMapa";
 import { IlhaRemota } from "./IlhaRemota";
@@ -50,6 +51,7 @@ function CamadaEstado() {
   return (
     <>
       <Aglomerados uf={uf} ocultar={ocultar} />
+      <AnelRaio />
       {visivel && daUf && previa && <PreviaCidade cidade={daUf} previa={previa} />}
       <RotulosCidade uf={uf} excedente={visivel ? (previa?.excedente ?? 0) : 0} />
     </>

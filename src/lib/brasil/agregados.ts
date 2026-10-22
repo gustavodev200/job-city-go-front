@@ -94,25 +94,63 @@ export function faixaDe(total: number, limites: readonly number[]): FaixaCalor {
   return faixa as FaixaCalor;
 }
 
-// Memorizados em nível de módulo: as vagas mock não mudam durante a sessão nesta feature.
-export const AGREGADO_UF = calcularPorUf(vagasBrasil);
-export const AGREGADO_CIDADE = calcularPorCidade(vagasBrasil);
-export const AGREGADO_REMOTO = calcularRemoto(vagasBrasil);
-export const LIMITES_FAIXAS = calcularLimitesFaixas(AGREGADO_UF);
-export const TOTAL_ABERTAS_BRASIL =
-  UFS.reduce((s, uf) => s + AGREGADO_UF[uf].abertas, 0) + AGREGADO_REMOTO.abertas;
+export type Agregados = {
+  porUf: Record<Uf, AgregadoUf>;
+  porCidade: Map<string, AgregadoCidade>;
+  remoto: { abertas: number };
+  limites: number[];
+  totalBrasil: number;
+};
 
-/** Cidades da UF com ao menos uma vaga: mais vagas abertas primeiro, depois nome. */
-export function cidadesDoEstado(uf: Uf): Cidade[] {
-  return cidades
-    .filter((c) => c.uf === uf && AGREGADO_CIDADE.has(c.id))
-    .sort(
-      (a, b) =>
-        AGREGADO_CIDADE.get(b.id)!.abertas - AGREGADO_CIDADE.get(a.id)!.abertas || a.nome.localeCompare(b.nome, "pt-BR"),
-    );
+/** Todas as contagens do mapa sobre uma lista (filtrada ou não — spec 004, FR-005). */
+export function calcularAgregados(vagas: readonly VagaNacional[]): Agregados {
+  const porUf = calcularPorUf(vagas);
+  const remoto = calcularRemoto(vagas);
+  return {
+    porUf,
+    porCidade: calcularPorCidade(vagas),
+    remoto,
+    limites: calcularLimitesFaixas(porUf),
+    totalBrasil: UFS.reduce((s, uf) => s + porUf[uf].abertas, 0) + remoto.abertas,
+  };
 }
 
-export const faixaCalor = (uf: Uf) => faixaDe(AGREGADO_UF[uf].abertas, LIMITES_FAIXAS);
+export const faixaCalorDe = (ag: Agregados, uf: Uf) => faixaDe(ag.porUf[uf].abertas, ag.limites);
+
+// O conjunto de cidades do mapa não muda com filtro (layout estável, research R2).
+const CIDADES_COM_VAGA = calcularPorCidade(vagasBrasil);
+
+const UF_DA_CIDADE = new Map(cidades.map((c) => [c.id, c.uf]));
+
+/** Agregado da cidade; cidade sem vaga no filtro vem zerada (nunca undefined). */
+export function agregadoDaCidade(porCidade: ReadonlyMap<string, AgregadoCidade>, cidadeId: string): AgregadoCidade {
+  return (
+    porCidade.get(cidadeId) ?? {
+      cidadeId,
+      uf: UF_DA_CIDADE.get(cidadeId) ?? "GO",
+      abertas: 0,
+      encerradas: 0,
+      porCategoria: {},
+      porModelo: { presencial: 0, hibrido: 0 },
+    }
+  );
+}
+
+/** Vagas da cidade (abertas + encerradas) sem filtro: tamanho estável do aglomerado no mapa. */
+export const totalDaCidade = (cidadeId: string) => {
+  const ag = CIDADES_COM_VAGA.get(cidadeId);
+  return ag ? ag.abertas + ag.encerradas : 0;
+};
+
+/** Cidades da UF com ao menos uma vaga (sem filtro): mais vagas abertas primeiro, depois nome. */
+export function cidadesDoEstado(uf: Uf): Cidade[] {
+  return cidades
+    .filter((c) => c.uf === uf && CIDADES_COM_VAGA.has(c.id))
+    .sort(
+      (a, b) =>
+        CIDADES_COM_VAGA.get(b.id)!.abertas - CIDADES_COM_VAGA.get(a.id)!.abertas || a.nome.localeCompare(b.nome, "pt-BR"),
+    );
+}
 
 /**
  * Escala do modo Calor: um matiz (laranja; azul confundiria com o mar), claro → escuro.

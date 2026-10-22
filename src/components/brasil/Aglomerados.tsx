@@ -7,7 +7,8 @@ import { cicloRuntime } from "@/components/city/ciclo";
 import type { Uf } from "@/data/brasil/estados";
 import type { Cidade } from "@/data/brasil/tipos";
 import { criarAleatorio } from "@/lib/aleatorio";
-import { AGREGADO_CIDADE, cidadesDoEstado } from "@/lib/brasil/agregados";
+import { agregadoDaCidade, cidadesDoEstado, totalDaCidade } from "@/lib/brasil/agregados";
+import { useAgregados } from "@/components/busca/usarBusca";
 import { celulaDoPonto, topoDaCelula } from "@/lib/brasil/geo";
 import { useMapaStore } from "@/stores/mapa";
 
@@ -38,8 +39,7 @@ function semente(id: string) {
 
 /** Silhuetas de prédios de uma cidade: mais vagas, mais (e mais altos) prédios. */
 function caixasDaCidade(cidade: Cidade): Caixa[] {
-  const ag = AGREGADO_CIDADE.get(cidade.id)!;
-  const total = ag.abertas + ag.encerradas;
+  const total = totalDaCidade(cidade.id);
   const n = THREE.MathUtils.clamp(Math.round(2 + 1.5 * Math.sqrt(total)), 3, 12);
   const raio = Math.min(0.8, 0.15 + 0.1 * Math.sqrt(total));
   const cel = celulaDoPonto(cidade.x, cidade.z);
@@ -105,13 +105,13 @@ function Camada({
 
 /** Cidades da UF com vaga, vistas de longe: um aglomerado de silhuetas por cidade. */
 export function Aglomerados({ uf, ocultar }: { uf: Uf; ocultar?: ReadonlySet<string> }) {
+  // Cidade sem vaga aberta no filtro fica apagada (spec 004, FR-005).
+  const { porCidade } = useAgregados();
   const [acesas, apagadas] = useMemo(() => {
     const lista = cidadesDoEstado(uf);
-    return [
-      lista.filter((c) => AGREGADO_CIDADE.get(c.id)!.abertas > 0).flatMap(caixasDaCidade),
-      lista.filter((c) => AGREGADO_CIDADE.get(c.id)!.abertas === 0).flatMap(caixasDaCidade),
-    ];
-  }, [uf]);
+    const aberta = (c: Cidade) => agregadoDaCidade(porCidade, c.id).abertas > 0;
+    return [lista.filter(aberta).flatMap(caixasDaCidade), lista.filter((c) => !aberta(c)).flatMap(caixasDaCidade)];
+  }, [uf, porCidade]);
 
   useFrame(() => {
     MATERIAL_ACESO.emissiveIntensity = THREE.MathUtils.lerp(EMISSIVO_DIA, EMISSIVO_NOITE, cicloRuntime.luzes);

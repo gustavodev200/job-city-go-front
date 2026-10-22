@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { estados, UFS } from "@/data/brasil/estados";
-import { AGREGADO_UF, CORES_CALOR, faixaCalor } from "@/lib/brasil/agregados";
+import { AnelRaioSvg } from "./AnelRaio";
+import { useAgregados } from "@/components/busca/usarBusca";
+import { CORES_CALOR } from "@/lib/brasil/agregados";
 import { CAIXA_BRASIL, CORES_BIOMA, UF_GEO } from "@/lib/brasil/geo";
 import { useUfDaRota } from "@/lib/brasil/navegacao";
 import { hrefEstado } from "@/lib/brasil/rotas";
@@ -15,6 +17,7 @@ const caminho = (aneis: [number, number][][]) =>
 
 /** Fallback sem WebGL: mesmos estados, contagens e links, em SVG. */
 export function BrasilPlano() {
+  const ag = useAgregados();
   const modo = useMapaStore((s) => s.modo);
   const ufEmFoco = useMapaStore((s) => s.ufEmFoco);
   const focar = useMapaStore((s) => s.focar);
@@ -26,14 +29,14 @@ export function BrasilPlano() {
     <div className="absolute inset-0 flex items-center justify-center bg-sky-200 p-4">
       <svg viewBox={viewBox} className="h-full w-full max-w-3xl" role="group" aria-label="Mapa do Brasil">
         {UFS.map((uf) => {
-          const cor = modo === "calor" ? CORES_CALOR[faixaCalor(uf)] : CORES_BIOMA[estados[uf].bioma];
+          const cor = modo === "calor" ? CORES_CALOR[ag.faixa(uf)] : CORES_BIOMA[estados[uf].bioma];
           const [x, z] = UF_GEO[uf].rotulo;
           const apagado = ufDaRota !== null && ufDaRota !== uf;
           return (
             <Link
               key={uf}
               href={hrefEstado(uf)}
-              aria-label={`${estados[uf].nome}, ${AGREGADO_UF[uf].abertas} vagas abertas`}
+              aria-label={`${estados[uf].nome}, ${ag.porUf[uf].abertas} vagas abertas`}
               // No toque o link navega direto; hover (resumo) só com mouse.
               onPointerEnter={(e) => e.pointerType === "mouse" && focar(uf)}
               // Só foco de teclado: o foco do toque abriria o resumo por cima do próprio link.
@@ -49,11 +52,12 @@ export function BrasilPlano() {
                 strokeWidth={uf === ufEmFoco ? 0.7 : 0.3}
               />
               <text x={x} y={z} textAnchor="middle" dominantBaseline="middle" fontSize={3.2} fontWeight={700} fill="#1c1917">
-                {uf} · {AGREGADO_UF[uf].abertas}
+                {uf} · {ag.porUf[uf].abertas}
               </text>
             </Link>
           );
         })}
+        <AnelRaioSvg />
       </svg>
     </div>
   );
