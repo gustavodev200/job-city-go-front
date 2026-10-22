@@ -21,8 +21,8 @@ const cruzam = (a: Retangulo, b: Retangulo) =>
   Math.abs(a.x - b.x) * 2 < a.w + b.w + 2 * MARGEM && Math.abs(a.y - b.y) * 2 < a.h + b.h + 2 * MARGEM;
 
 /**
- * Rótulos "Goiás · 24": nome completo do estado quando cabe; se colide com um vizinho
- * (Nordeste, DF), cai para a sigla. Decorativos: a versão acessível é a lista de estados.
+ * Rótulos "Goiás · 24 vagas": nome completo do estado quando cabe; se colide com um vizinho
+ * (Nordeste, DF), cai para "GO · 24 vagas" e, se ainda colidir, para "GO · 24". Decorativos: a versão acessível é a lista de estados.
  */
 export function RotulosUf() {
   const ufEmFoco = useMapaStore((s) => s.ufEmFoco);
@@ -31,7 +31,8 @@ export function RotulosUf() {
   const tamanho = useThree((s) => s.size);
   // No nível Estado, a UF aberta mostra os rótulos das cidades no lugar do dela.
   const ufDaRota = useUfDaRota();
-  const [curtos, setCurtos] = useState<ReadonlySet<Uf>>(new Set(UFS));
+  /** Índice do texto usado por UF (0 = nome completo); começa no mais curto. */
+  const [niveis, setNiveis] = useState<Partial<Record<Uf, number>>>({});
   const relogio = useRef(INTERVALO);
   const assinatura = useRef("");
 
@@ -41,12 +42,13 @@ export function RotulosUf() {
         .map((uf) => {
           const [x, z] = UF_GEO[uf].rotulo;
           const n = AGREGADO_UF[uf].abertas;
+          const vagas = `${n} ${n === 1 ? "vaga" : "vagas"}`;
           return {
             uf,
             n,
             posicao: new THREE.Vector3(x, ALTURA_DEGRAU * 7, z),
-            completo: `${estados[uf].nome} · ${n}`,
-            curto: `${uf} · ${n}`,
+            // Do mais longo ao mais curto; usa o maior que couber sem encostar no vizinho.
+            textos: [`${estados[uf].nome} · ${vagas}`, `${uf} · ${vagas}`, `${uf} · ${n}`],
           };
         })
         // Mais vagas primeiro: estados grandes de mercado ficam com o nome inteiro.
@@ -65,19 +67,25 @@ export function RotulosUf() {
       const v = _v.current.copy(p.posicao).project(camera);
       return { x: ((v.x + 1) / 2) * tamanho.width, y: ((1 - v.y) / 2) * tamanho.height };
     });
-    // Primeiro reserva o lugar mínimo (sigla) de todos; depois tenta ampliar para o nome.
-    const ocupados: Retangulo[] = pontos.map((p, i) => ({ ...pos[i], w: larguraEstimada(p.curto) * escala, h: altura }));
-    const novos = new Set<Uf>();
+    // Primeiro reserva o lugar mínimo de todos; depois tenta ampliar, do texto mais longo ao mais curto.
+    const ultimo = (p: (typeof pontos)[number]) => p.textos.length - 1;
+    const ocupados: Retangulo[] = pontos.map((p, i) => ({ ...pos[i], w: larguraEstimada(p.textos[ultimo(p)]) * escala, h: altura }));
+    const novos: Partial<Record<Uf, number>> = {};
     pontos.forEach((p, i) => {
-      const completo = { ...pos[i], w: larguraEstimada(p.completo) * escala, h: altura };
-      const colide = ocupados.some((r, j) => j !== i && cruzam(completo, r));
-      if (colide) novos.add(p.uf);
-      else ocupados[i] = completo;
+      novos[p.uf] = ultimo(p);
+      for (let nivel = 0; nivel < ultimo(p); nivel++) {
+        const r = { ...pos[i], w: larguraEstimada(p.textos[nivel]) * escala, h: altura };
+        if (!ocupados.some((o, j) => j !== i && cruzam(r, o))) {
+          ocupados[i] = r;
+          novos[p.uf] = nivel;
+          break;
+        }
+      }
     });
-    const chave = [...novos].sort().join(",");
+    const chave = pontos.map((p) => novos[p.uf]).join(",");
     if (chave !== assinatura.current) {
       assinatura.current = chave;
-      setCurtos(novos);
+      setNiveis(novos);
     }
   });
 
@@ -93,7 +101,7 @@ export function RotulosUf() {
                 foco ? "bg-amber-300 text-stone-900" : "bg-stone-900/65 text-amber-50"
               }`}
             >
-              {curtos.has(p.uf) && !foco ? p.curto : p.completo}
+              {foco ? p.textos[0] : p.textos[niveis[p.uf] ?? p.textos.length - 1]}
             </span>
           </Html>
         );
