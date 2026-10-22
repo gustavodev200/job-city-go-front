@@ -228,11 +228,18 @@ function glowTexture() {
 
 // ── Street lights ───────────────────────────────────────────────────────
 /** Only the lamps closest to the player get a real point light. */
-const LAMP_LIGHT_POOL = 4;
+const LAMP_LIGHT_POOL = 8;
+/** Real lamp light: reach (scene units ≈ m), soft falloff and strength. */
+const LAMP_REACH = 28;
+const LAMP_DECAY = 1.1;
+const LAMP_INTENSITY = 14;
+/** Fake light pool on the ground under every lamp (also on phones, no real lights). */
+const POOL_SIZE = 18;
+const POOL_OPACITY = 0.62;
 
 const GLOW_MAP = glowTexture();
 const ADDITIVE = { map: GLOW_MAP, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false };
-const HALO_MATERIAL = new THREE.PointsMaterial({ ...ADDITIVE, color: "#ffcf8a", size: 2.4, sizeAttenuation: true });
+const HALO_MATERIAL = new THREE.PointsMaterial({ ...ADDITIVE, color: "#ffcf8a", size: 3.4, sizeAttenuation: true });
 const POOL_MATERIAL = new THREE.MeshBasicMaterial({ ...ADDITIVE, color: "#ffb45e", polygonOffset: true, polygonOffsetFactor: -4 });
 function StreetLights({ pointLights, postes: LAMP_HEADS }: { pointLights: boolean; postes: readonly Poste[] }) {
   const pools = useRef<THREE.InstancedMesh>(null);
@@ -254,7 +261,7 @@ function StreetLights({ pointLights, postes: LAMP_HEADS }: { pointLights: boolea
     LAMP_HEADS.forEach((l, i) => {
       d.position.set(l.x, l.groundY + 0.02, l.z);
       d.rotation.set(-Math.PI / 2, 0, 0);
-      d.scale.setScalar(7);
+      d.scale.setScalar(POOL_SIZE);
       d.updateMatrix();
       mesh.setMatrixAt(i, d.matrix);
     });
@@ -265,7 +272,7 @@ function StreetLights({ pointLights, postes: LAMP_HEADS }: { pointLights: boolea
   useFrame((_, dt) => {
     const on = cicloRuntime.luzes;
     HALO_MATERIAL.opacity = on * 0.9;
-    POOL_MATERIAL.opacity = on * 0.5;
+    POOL_MATERIAL.opacity = on * POOL_OPACITY;
     HALO_MATERIAL.visible = POOL_MATERIAL.visible = on > 0.01;
     if (!pointLights) return;
 
@@ -281,7 +288,7 @@ function StreetLights({ pointLights, postes: LAMP_HEADS }: { pointLights: boolea
         lights.current[i]?.position.set(l.x, l.y - 0.3, l.z);
       });
     }
-    for (const light of lights.current) if (light) light.intensity = on * 7;
+    for (const light of lights.current) if (light) light.intensity = on * LAMP_INTENSITY;
   });
 
   return (
@@ -299,8 +306,8 @@ function StreetLights({ pointLights, postes: LAMP_HEADS }: { pointLights: boolea
             }}
             color="#ffc47a"
             intensity={0}
-            distance={11}
-            decay={2}
+            distance={LAMP_REACH}
+            decay={LAMP_DECAY}
           />
         ))}
     </>

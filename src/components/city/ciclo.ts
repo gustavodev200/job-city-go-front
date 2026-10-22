@@ -23,9 +23,9 @@ const MADRUGADA: Paleta = {
   neblina: "#111d38",
   brilho: "#000000",
   nuvem: "#171f33",
-  ceuLuz: "#3a4d7c",
-  chaoLuz: "#141a26",
-  ambiente: 0.5,
+  ceuLuz: "#7a8cc0",
+  chaoLuz: "#36405a",
+  ambiente: 1.0,
 };
 const AMANHECER: Paleta = {
   topo: "#5873ad",
@@ -63,9 +63,9 @@ const NOITE: Paleta = {
   neblina: "#353f58",
   brilho: "#18122c",
   nuvem: "#283146",
-  ceuLuz: "#40527e",
-  chaoLuz: "#181e2c",
-  ambiente: 0.55,
+  ceuLuz: "#8496c8",
+  chaoLuz: "#3c4762",
+  ambiente: 1.05,
 };
 
 /** Madrugada 0–5 · amanhecer 5–7 · dia 7–17 · entardecer 17–19 · noite 19–24. */
@@ -95,7 +95,8 @@ const SOL_ALTO = new THREE.Color("#fff0d6");
 const INCLINACAO = 0.35;
 
 export const SOL_MAX = 2.3;
-export const LUA_MAX = 0.5;
+/** Luar forte o bastante para enxergar ruas e prédios sem depender só dos postes. */
+export const LUA_MAX = 1.1;
 
 export type EstadoCeu = Record<ChaveCor, THREE.Color> & {
   ambiente: number;

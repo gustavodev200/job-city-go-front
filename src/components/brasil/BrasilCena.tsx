@@ -1,7 +1,9 @@
 "use client";
 
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { useRef } from "react";
 import * as THREE from "three";
+import { cicloRuntime } from "@/components/city/ciclo";
 import { DayNight } from "@/components/city/DayNight";
 import { cidades } from "@/data/brasil/cidades";
 import { useUfDaRota } from "@/lib/brasil/navegacao";
@@ -23,6 +25,16 @@ import { RotulosUf } from "./RotulosUf";
 import { mapaRuntime } from "./runtime";
 
 const focoDaCamera = () => mapaRuntime.alvo;
+/** Luar extra do mapa: visto de longe e sem postes, o país sumia no escuro. */
+const LUAR_MAPA = 1.1;
+
+function LuarMapa() {
+  const ref = useRef<THREE.AmbientLight>(null);
+  useFrame(() => {
+    if (ref.current) ref.current.intensity = LUAR_MAPA * cicloRuntime.noite;
+  });
+  return <ambientLight ref={ref} color="#b4c2ea" intensity={0} />;
+}
 
 /** Toda cidade do país mostra suas construções reais; no nível Estado entram anel e rótulos. */
 function CamadaCidades() {
@@ -58,6 +70,7 @@ export default function BrasilCena({ onContextoPerdido }: { onContextoPerdido: (
     >
       {/* Sem sombras nem luzes pontuais no país inteiro: custo alto, ganho baixo. */}
       <DayNight shadows={false} pointLights={false} cidade={false} foco={focoDaCamera} raioCeu={1200} neblina={[700, 2200]} />
+      <LuarMapa />
       <Mar />
       <Relevo />
       <Bordas />

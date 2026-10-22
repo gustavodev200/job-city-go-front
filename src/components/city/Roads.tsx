@@ -79,6 +79,28 @@ export type Poste = { x: number; y: number; z: number; groundY: number };
 
 const mesmo = (a: Ponto | null, b: Ponto) => a !== null && a.x === b.x && a.z === b.z;
 
+/** Postes ao longo das estradas de saída, alternando os lados, braço sobre a pista. */
+const ENTRE_POSTES = 14;
+function postesDasSaidas(mundo: Mundo): (Instance & { rotY: number })[] {
+  return mundo.saidas.flatMap((s) => {
+    const len = Math.hypot(s.x1 - s.x0, s.z1 - s.z0);
+    const ux = (s.x1 - s.x0) / len;
+    const uz = (s.z1 - s.z0) / len;
+    const afastar = s.largura / 2 + 0.8;
+    const postes: (Instance & { rotY: number })[] = [];
+    for (let d = 8, i = 0; d < len - 6; d += ENTRE_POSTES, i++) {
+      const lado = i % 2 === 0 ? 1 : -1;
+      if (s.lado === "oeste") {
+        // Estrada ao longo de x: poste em z ± afastar; cabeça (−x local) aponta para a pista.
+        postes.push({ x: s.x0 + ux * d, y: 0, z: s.z0 + lado * afastar, rotY: (-lado * Math.PI) / 2, lit: true });
+      } else {
+        postes.push({ x: s.x0 + lado * afastar, y: 0, z: s.z0 + uz * d, rotY: lado === 1 ? 0 : Math.PI, lit: true });
+      }
+    }
+    return postes;
+  });
+}
+
 /** Instâncias do mobiliário urbano da cidade, derivadas do mundo. */
 function ruasDaCidade(mundo: Mundo) {
   const { centrosX, centrosZ, ruasX, ruasZ, praca, estacionamento } = mundo;
@@ -105,9 +127,12 @@ function ruasDaCidade(mundo: Mundo) {
         { x: rx, y: 0, z: rz - 4.2, rotY: Math.PI / 2 },
       ]),
     ),
-    lamp: blocks.flatMap(({ x, z }) =>
-      [-1, 1].map((side) => ({ x: x + side * 6.5, y: 0.15, z: z + 6.5, rotY: side === -1 ? Math.PI : 0, lit: true })),
-    ),
+    lamp: [
+      ...blocks.flatMap(({ x, z }) =>
+        [-1, 1].map((side) => ({ x: x + side * 6.5, y: 0.15, z: z + 6.5, rotY: side === -1 ? Math.PI : 0, lit: true })),
+      ),
+      ...postesDasSaidas(mundo),
+    ],
     bench: [
       ...blocks.filter((b) => !isPlaza(b)).map(({ x, z }) => ({ x: x - 3.6, y: 0.15, z: z + 6.6 })),
       // Plaza benches facing the fountain.
