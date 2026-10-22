@@ -76,6 +76,16 @@ export type EntradaMundo =
   | { tipo: "cidade"; cidade: Cidade; vagas: readonly VagaNacional[] }
   | { tipo: "remoto"; vagas: readonly VagaNacional[] };
 
+/** Bairro Remoto: planalto a leste do rio com as casas das vagas remotas. */
+export type Vila = {
+  centrosX: number[];
+  centrosZ: number[];
+  ruasX: number[];
+  ruasZ: number[];
+  larguraRua: number;
+  urbano: Caixa;
+};
+
 export type Mundo = {
   id: string;
   tipo: "cidade" | "remoto";
@@ -99,9 +109,12 @@ export type Mundo = {
   rio: { x: number; meiaLargura: number; profundidade: number; aguaY: number };
   ponte: { x0: number; x1: number; meiaLargura: number; topo: number };
   colina: { inicio: number; fim: number; altura: number } | null;
-  /** Zona que leva ao outro mundo (margem oposta à área urbana). */
-  portal: Caixa;
-  nascimento: { praca: Ponto; ponte: Ponto };
+  /** Bairro Remoto do outro lado da ponte (na cidade, junto com as vagas presenciais/híbridas). */
+  vila: Vila | null;
+  /** Só no Bairro Remoto avulso (`/remoto`): margem oeste que leva de volta. */
+  portal: Caixa | null;
+  /** `praca`: chegada padrão; `ponte`: cabeceira da ponte; `vila`: primeira rua do Bairro Remoto. */
+  nascimento: { praca: Ponto; ponte: Ponto; vila: Ponto | null };
   limites: Caixa;
   spots: VagaSpot[];
   colisores: Rect[];
@@ -111,6 +124,8 @@ export type Mundo = {
   dentroDePredio: (x: number, y: number, z: number, folga: number) => boolean;
   vagaProxima: (x: number, z: number) => string | null;
   noPortal: (x: number, z: number) => boolean;
+  /** Lado leste do rio = Bairro Remoto. */
+  naVila: (x: number) => boolean;
 };
 
 // ── Auxiliares puros ────────────────────────────────────────────────────
@@ -171,6 +186,7 @@ export function gerarMundo(entrada: EntradaMundo): Mundo {
 
 function gerarCidade(cidade: Cidade, todas: readonly VagaNacional[]): Mundo {
   const vagas = todas.filter((v) => v.modelo !== "remoto" && v.cidadeId === cidade.id);
+  const remotas = todas.filter((v) => v.modelo === "remoto");
   const casasMinimas = Math.max(2, Math.ceil(vagas.length * 0.15));
   // Praça + vagas + estacionamento + casas: no mínimo 3×3 (a praça e seus 4 vizinhos).
   const { centrosX, centrosZ, ordem } = prefixoDaRede(PRACA, Math.max(5, vagas.length + 2 + casasMinimas));
@@ -213,13 +229,15 @@ function gerarCidade(cidade: Cidade, todas: readonly VagaNacional[]): Mundo {
     const f = FACADES[categoriaDe(l.vaga)];
     return spot(l, f.markerY, f.footprint);
   });
+  // O Bairro Remoto fica do outro lado da ponte, na mesma cena.
+  const bairro = gerarVila(rioX, remotas);
 
   return montar({
     id: cidade.id,
     tipo: "cidade",
     nome: cidade.nome,
     uf: cidade.uf,
-    vagas,
+    vagas: [...vagas, ...remotas],
     centrosX,
     centrosZ,
     ruasX,
@@ -228,43 +246,71 @@ function gerarCidade(cidade: Cidade, todas: readonly VagaNacional[]): Mundo {
     urbano,
     praca,
     estacionamento,
-    lotes,
+    lotes: [...lotes, ...bairro.lotes],
     casas,
     carros,
     rio: { x: rioX, ...RIO },
     ponte,
-    colina: null,
-    portal: { minX: ponte.x1 + 3, maxX: Infinity, minZ: -4, maxZ: 4 },
-    // Nasce na esquina da praça mais perto do centro (a (0, 2) da cidade original).
-    nascimento: { praca: { x: praca.x + PASSO / 2, z: praca.z - PASSO / 2 + 2 }, ponte: { x: ponte.x0 - 2, z: 0 } },
-    limites: { minX: urbano.minX - 15, maxX: ponte.x1 + 8, minZ: urbano.minZ - 15, maxZ: urbano.maxZ + 15 },
-    spots,
-    colisores,
+    colina: bairro.colina,
+    vila: bairro.vila,
+    portal: null,
+    nascimento: {
+      // Na esquina da praça mais perto do centro (a (0, 2) da cidade original).
+      praca: { x: praca.x + PASSO / 2, z: praca.z - PASSO / 2 + 2 },
+      ponte: { x: ponte.x0 - 2, z: 0 },
+      vila: bairro.chegada,
+    },
+    limites: {
+      minX: urbano.minX - 15,
+      maxX: bairro.vila.urbano.maxX + 15,
+      minZ: Math.min(urbano.minZ, bairro.vila.urbano.minZ) - 15,
+      maxZ: Math.max(urbano.maxZ, bairro.vila.urbano.maxZ) + 15,
+    },
+    spots: [...spots, ...bairro.spots],
+    colisores: [...colisores, ...bairro.colisores],
   });
 }
 
-function gerarRemoto(todas: readonly VagaNacional[]): Mundo {
-  const vagas = todas.filter((v) => v.modelo === "remoto");
-  const rioX = RIO_REMOTO_X;
+/** Planalto a leste do rio com uma casa por vaga remota (4 por quarteirão). */
+function gerarVila(rioX: number, vagas: readonly VagaNacional[]) {
   const colina = { inicio: rioX + COLINA.inicioRio, fim: rioX + COLINA.fimRio, altura: COLINA.altura };
-  // Primeira coluna da vila em fim da colina + 12 (x = 120, como a vila original); rua em z = 0.
+  // Primeira coluna da vila em fim da colina + 12 (x = 120 com o rio em 86, como a vila original).
   const { centrosX, centrosZ, ordem } = prefixoDaRede(
     { x: colina.fim + 12, z: 10 },
     Math.max(4, Math.ceil(vagas.length / CASAS_REMOTAS.length)),
     colina.fim + 12,
   );
-  const posicoes = ordem.flatMap((b) =>
-    CASAS_REMOTAS.map(([dx, dz]) => ({ x: b.x + dx, z: b.z + dz })),
-  );
+  const posicoes = ordem.flatMap((b) => CASAS_REMOTAS.map(([dx, dz]) => ({ x: b.x + dx, z: b.z + dz })));
   const lotes: Lote[] = vagas.map((vaga, i) => ({ vaga, x: posicoes[i].x, z: posicoes[i].z, y: colina.altura }));
-  const ruasX = [centrosX[0] - PASSO / 2, ...centrosX.map((c) => c + PASSO / 2)];
-  const ruasZ = [centrosZ[0] - PASSO / 2, ...centrosZ.map((c) => c + PASSO / 2)];
-  const urbano = {
-    minX: colina.fim,
-    maxX: centrosX.at(-1)! + QUARTEIRAO / 2 + 5,
-    minZ: centrosZ[0] - QUARTEIRAO / 2 - 5,
-    maxZ: centrosZ.at(-1)! + QUARTEIRAO / 2 + 5,
+  const vila: Vila = {
+    centrosX,
+    centrosZ,
+    ruasX: [centrosX[0] - PASSO / 2, ...centrosX.map((c) => c + PASSO / 2)],
+    ruasZ: [centrosZ[0] - PASSO / 2, ...centrosZ.map((c) => c + PASSO / 2)],
+    larguraRua: RUA_VILA,
+    urbano: {
+      minX: colina.fim,
+      maxX: centrosX.at(-1)! + QUARTEIRAO / 2 + 5,
+      minZ: centrosZ[0] - QUARTEIRAO / 2 - 5,
+      maxZ: centrosZ.at(-1)! + QUARTEIRAO / 2 + 5,
+    },
   };
+  return {
+    colina,
+    vila,
+    lotes,
+    // Sem origem: chega na primeira rua da vila (o (130, 2) da vila original).
+    chegada: { x: centrosX[0] + PASSO / 2, z: 2 },
+    spots: lotes.map((l) => spot(l, REMOTE_HOUSE.markerY, REMOTE_HOUSE.footprint)),
+    colisores: lotes.map((l) => ret(l.x, l.z, REMOTE_HOUSE.footprint, l.y, 5)),
+  };
+}
+
+function gerarRemoto(todas: readonly VagaNacional[]): Mundo {
+  const vagas = todas.filter((v) => v.modelo === "remoto");
+  const rioX = RIO_REMOTO_X;
+  const bairro = gerarVila(rioX, vagas);
+  const { vila } = bairro;
   const ponte = { x0: rioX - PONTE.meiaComprimento, x1: rioX + PONTE.meiaComprimento, meiaLargura: PONTE.meiaLargura, topo: PONTE.topo };
 
   return montar({
@@ -273,31 +319,31 @@ function gerarRemoto(todas: readonly VagaNacional[]): Mundo {
     nome: "Bairro Remoto",
     uf: null,
     vagas,
-    centrosX,
-    centrosZ,
-    ruasX,
-    ruasZ,
+    centrosX: vila.centrosX,
+    centrosZ: vila.centrosZ,
+    ruasX: vila.ruasX,
+    ruasZ: vila.ruasZ,
     larguraRua: RUA_VILA,
-    urbano,
+    urbano: vila.urbano,
     praca: null,
     estacionamento: null,
-    lotes,
+    lotes: bairro.lotes,
     casas: [],
     carros: [],
     rio: { x: rioX, ...RIO },
     ponte,
-    colina,
+    colina: bairro.colina,
+    vila,
     portal: { minX: -Infinity, maxX: ponte.x0 - 3, minZ: -4, maxZ: 4 },
-    // Sem origem: chega na primeira rua da vila (o (130, 2) da vila original).
-    nascimento: { praca: { x: centrosX[0] + PASSO / 2, z: 2 }, ponte: { x: ponte.x1 + 2, z: 0 } },
+    nascimento: { praca: bairro.chegada, ponte: { x: ponte.x1 + 2, z: 0 }, vila: bairro.chegada },
     limites: {
       minX: ponte.x0 - 8,
-      maxX: urbano.maxX + 15,
-      minZ: Math.min(urbano.minZ - 15, -30),
-      maxZ: Math.max(urbano.maxZ + 15, 30),
+      maxX: vila.urbano.maxX + 15,
+      minZ: Math.min(vila.urbano.minZ - 15, -30),
+      maxZ: Math.max(vila.urbano.maxZ + 15, 30),
     },
-    spots: lotes.map((l) => spot(l, REMOTE_HOUSE.markerY, REMOTE_HOUSE.footprint)),
-    colisores: lotes.map((l) => ret(l.x, l.z, REMOTE_HOUSE.footprint, l.y, 5)),
+    spots: bairro.spots,
+    colisores: bairro.colisores,
   });
 }
 
@@ -318,7 +364,10 @@ function spot(l: Lote, markerY: number, footprint: readonly [number, number]): V
   };
 }
 
-type Dados = Omit<Mundo, "alturaDoChao" | "alturaDoPasso" | "bloqueado" | "dentroDePredio" | "vagaProxima" | "noPortal">;
+type Dados = Omit<
+  Mundo,
+  "alturaDoChao" | "alturaDoPasso" | "bloqueado" | "dentroDePredio" | "vagaProxima" | "noPortal" | "naVila"
+>;
 
 /** Junta os dados às funções de terreno, colisão e interação. */
 function montar(d: Dados): Mundo {
@@ -372,7 +421,8 @@ function montar(d: Dados): Mundo {
       }
       return melhor;
     },
-    noPortal: (x, z) => x >= portal.minX && x <= portal.maxX && z >= portal.minZ && z <= portal.maxZ,
+    noPortal: (x, z) => portal !== null && x >= portal.minX && x <= portal.maxX && z >= portal.minZ && z <= portal.maxZ,
+    naVila: (x) => d.vila !== null && x > rio.x,
   };
 }
 

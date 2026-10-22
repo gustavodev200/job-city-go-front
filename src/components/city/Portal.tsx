@@ -6,13 +6,12 @@ import { useMundo } from "./mundo";
 const ALTURA = 5.2;
 const VAO = 7;
 
-/** Arco na margem oposta da ponte: atravessar leva ao Bairro Remoto (ou de volta). */
+/** Arco na margem oeste do Bairro Remoto avulso (`/remoto`): atravessar leva de volta. */
 export function Portal({ rotulo }: { rotulo: string }) {
-  const { ponte, tipo, alturaDoPasso } = useMundo();
-  // Cidade: margem leste, depois da ponte. Bairro Remoto: margem oeste, antes da ponte.
-  const x = tipo === "cidade" ? ponte.x1 + 4 : ponte.x0 - 4;
+  const { ponte, alturaDoPasso } = useMundo();
+  const x = ponte.x0 - 4;
   const y = alturaDoPasso(x, 0);
-  const cor = tipo === "cidade" ? "#1d9f95" : "#e57a3c";
+  const cor = "#e57a3c";
   return (
     <group position={[x, y, 0]} rotation-y={Math.PI / 2}>
       {[-1, 1].map((lado) => (

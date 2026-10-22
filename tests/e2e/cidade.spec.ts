@@ -18,15 +18,21 @@ test("entrar em Anápolis pelo mapa: placa e legenda batem com as vagas da cidad
   expect(numeros.reduce((s, n) => s + Number(n), 0)).toBe(abertasNaLista);
 });
 
-test("portal: cidade → Bairro Remoto → volta para a mesma cidade", async ({ page }) => {
+test("Bairro Remoto na mesma cena: botão leva à vila e a placa troca", async ({ page, isMobile }) => {
+  test.skip(isMobile, "no celular o botão é compacto (só ícone)");
   await page.goto("/cidade/anapolis-go");
-  await page.getByRole("button", { name: "Bairro Remoto" }).click();
-  await expect(page).toHaveURL(/\/remoto\?de=anapolis-go$/);
-  await expect(page.getByRole("heading", { name: "Bairro Remoto" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Anápolis · GO" })).toBeVisible();
+  await page.getByRole("button", { name: /Ir para o Bairro Remoto/ }).click();
+  await expect(page.getByRole("heading", { name: "Bairro Remoto" })).toBeVisible({ timeout: 15_000 });
+  await expect(page).toHaveURL(/\/cidade\/anapolis-go$/);
+  await page.getByRole("button", { name: /Ir para a cidade/ }).click();
+  await expect(page.getByRole("heading", { name: "Anápolis · GO" })).toBeVisible({ timeout: 15_000 });
+});
 
+test("Bairro Remoto avulso com origem volta para a cidade", async ({ page }) => {
+  await page.goto("/remoto?de=anapolis-go");
   await page.getByRole("button", { name: "Voltar para Anápolis" }).click();
   await expect(page).toHaveURL(/\/cidade\/anapolis-go\?chegada=ponte$/);
-  await expect(page.getByRole("heading", { name: "Anápolis · GO" })).toBeVisible();
 });
 
 test("Bairro Remoto direto (ou com origem inválida) volta ao mapa", async ({ page }) => {

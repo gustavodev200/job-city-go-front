@@ -32,7 +32,7 @@ export function Minimap({ size }: { size: number }) {
     const R = size / 2;
     const scale = R / RANGE;
     const POINTS = pontosDo(mundo);
-    const { urbano, centrosX, centrosZ, rio, ponte, ruasX, ruasZ, larguraRua } = mundo;
+    const { urbano, centrosX, centrosZ, rio, ponte, vila } = mundo;
     let frame = 0;
 
     const draw = (time: number) => {
@@ -67,8 +67,10 @@ export function Minimap({ size }: { size: number }) {
       ctx.rotate(phi);
       ctx.scale(scale, scale);
       ctx.translate(-px, -pz);
-      ctx.fillStyle = "rgba(255,255,255,0.13)";
-      ctx.fillRect(urbano.minX, urbano.minZ, urbano.maxX - urbano.minX, urbano.maxZ - urbano.minZ);
+      if (mundo.tipo === "cidade") {
+        ctx.fillStyle = "rgba(255,255,255,0.13)";
+        ctx.fillRect(urbano.minX, urbano.minZ, urbano.maxX - urbano.minX, urbano.maxZ - urbano.minZ);
+      }
       ctx.fillStyle = "rgba(150,205,135,0.32)";
       const hb = CITY_BLOCK_SIZE / 2;
       for (const bx of centrosX) {
@@ -78,10 +80,11 @@ export function Minimap({ size }: { size: number }) {
       ctx.fillRect(rio.x - rio.meiaLargura, -400, rio.meiaLargura * 2, 800);
       ctx.fillStyle = "#d8d2c4";
       ctx.fillRect(ponte.x0, -ponte.meiaLargura, ponte.x1 - ponte.x0, ponte.meiaLargura * 2);
-      if (mundo.tipo === "remoto") {
+      if (vila) {
         // Estrada de terra da ponte à vila e ruas da vila.
+        const { ruasX, ruasZ, larguraRua } = vila;
         ctx.fillStyle = "rgba(217,195,154,0.6)";
-        ctx.fillRect(ponte.x1, -larguraRua / 2, urbano.minX - ponte.x1, larguraRua);
+        ctx.fillRect(ponte.x1, -larguraRua / 2, vila.urbano.minX - ponte.x1, larguraRua);
         const vw = ruasX.at(-1)! - ruasX[0];
         const vd = ruasZ.at(-1)! - ruasZ[0];
         for (const x of ruasX) ctx.fillRect(x - larguraRua / 2, ruasZ[0], larguraRua, vd);

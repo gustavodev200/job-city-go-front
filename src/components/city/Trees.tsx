@@ -139,10 +139,11 @@ export function arvoresDoMundo(mundo: Mundo): Arvores {
         }
       }
     }
-  } else {
+  }
+  if (mundo.vila) {
     // Village: mixed trees and bushes around the houses.
-    for (const bx of mundo.centrosX) {
-      for (const bz of mundo.centrosZ) {
+    for (const bx of mundo.vila.centrosX) {
+      for (const bz of mundo.vila.centrosZ) {
         const y = alturaDoChao(bx);
         for (const [dx, dz] of [
           [-5.5, -5.5],
@@ -168,11 +169,13 @@ export function arvoresDoMundo(mundo: Mundo): Arvores {
   for (let tentativas = 0; placed < quantidade && tentativas < quantidade * 6; tentativas++) {
     const x = campo.minX + rand() * (campo.maxX - campo.minX);
     const z = campo.minZ + rand() * (campo.maxZ - campo.minZ);
-    const inUrban = x > urbano.minX - 4 && x < urbano.maxX + 4 && z > urbano.minZ - 4 && z < urbano.maxZ + 4;
+    const dentro = (c: typeof urbano) => x > c.minX - 4 && x < c.maxX + 4 && z > c.minZ - 4 && z < c.maxZ + 4;
+    const inUrban = dentro(urbano) || (mundo.vila !== null && dentro(mundo.vila.urbano));
     const nearRiver = Math.abs(x - rio.x) < rio.meiaLargura + 3;
     // Avenue/dirt road along z = 0, from the far bank to the urban area.
-    const onRoad = Math.abs(z) < 6 && x > Math.min(urbano.maxX, ponte.x0) - 8 && x < Math.max(urbano.minX, ponte.x1) + 12;
-    const nearPortal = Math.abs(z) < 10 && (x > ponte.x1 && mundo.tipo === "cidade" || x < ponte.x0 && mundo.tipo === "remoto");
+    const fimDaEstrada = mundo.vila ? mundo.vila.urbano.minX : ponte.x1;
+    const onRoad = Math.abs(z) < 6 && x > Math.min(urbano.maxX, ponte.x0) - 8 && x < fimDaEstrada + 12;
+    const nearPortal = mundo.portal !== null && Math.abs(z) < 10 && x < ponte.x0;
     if (inUrban || nearRiver || onRoad || nearPortal) continue;
     placed++;
     const r = rand();

@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo } from "react";
 import { Trilha } from "@/components/brasil/Trilha";
-import { ChegadaSchema, DeSchema, cidadePorId, hrefCidade, hrefRemoto, vagaSchema } from "@/lib/brasil/rotas";
+import { ChegadaSchema, DeSchema, cidadePorId, hrefCidade, vagaSchema } from "@/lib/brasil/rotas";
 import { mundoDaCidade, mundoRemoto } from "@/lib/cidade/mundo";
 import { useReidratar } from "@/stores/armazenamento";
 import { useGameStore } from "@/stores/game";
@@ -54,21 +54,22 @@ export function NivelCidade({ mundoId }: { mundoId: string }) {
   // Seleção e vaga próxima são do mundo anterior; `?vaga=` abre o pergaminho.
   useEffect(() => {
     const store = useGameStore.getState();
+    store.fimViagem();
     store.setNearbyVaga(vagaId ?? null);
     store.selectVaga(vagaId ?? null);
   }, [mundo, vagaId]);
 
-  const destino =
-    mundo.tipo === "cidade" ? hrefRemoto(mundo.id) : de ? hrefCidade(de, { chegada: "ponte" }) : "/";
-  const rotuloPortal =
-    mundo.tipo === "cidade" ? "Bairro Remoto" : de ? `Voltar para ${cidadePorId.get(de)!.nome}` : "Voltar ao mapa";
+  // Na cidade o Bairro Remoto fica do outro lado da ponte; o portal só existe no /remoto avulso.
+  const destino = de ? hrefCidade(de, { chegada: "ponte" }) : "/";
+  const rotuloPortal = de ? `Voltar para ${cidadePorId.get(de)!.nome}` : "Voltar ao mapa";
   const atravessar = () => router.push(destino);
+  const portal = mundo.portal ? { rotulo: rotuloPortal, aoUsar: atravessar } : undefined;
 
   return (
     <MundoProvider value={mundo}>
       <main className="relative h-dvh w-full overflow-hidden">
         <CityScene key={`${mundo.id}:${inicio.x},${inicio.z}`} inicio={inicio} rotuloPortal={rotuloPortal} aoAtravessar={atravessar} />
-        <Hud portal={{ rotulo: rotuloPortal, aoUsar: atravessar }} />
+        <Hud portal={portal} />
         <OutdoorOverlay />
         <ControleHora />
         <div className="bloco-notas absolute top-3 left-3 z-30 rounded-lg px-3 py-1.5 md:top-4 md:left-4">

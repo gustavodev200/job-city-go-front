@@ -18,14 +18,18 @@ import {
 import { Minimap } from "./Minimap";
 import { useMundo } from "./mundo";
 import { PergaminhoVaga } from "./PergaminhoVaga";
+import { playerRuntime } from "./playerRuntime";
 import { usePresence } from "./usePresence";
 
 /** Virtual balance shown on the city sign (fixed for now). */
 const SALDO = 1250;
 
-/** Contagens do mundo aberto (só vagas abertas na legenda — US2-3). */
-function contagens(mundo: Mundo) {
-  const abertas = mundo.vagas.filter((v) => v.status === "aberta");
+type Area = "cidade" | "remoto";
+
+/** Contagens de uma área do mundo (só vagas abertas na legenda — US2-3). */
+function contagens(mundo: Mundo, area?: Area) {
+  const daArea = area ? mundo.vagas.filter((v) => (v.modelo === "remoto") === (area === "remoto")) : mundo.vagas;
+  const abertas = daArea.filter((v) => v.status === "aberta");
   const porCategoria = Object.fromEntries(
     ORDEM_CATEGORIAS.map((cat) => [cat, abertas.filter((v) => v.modelo !== "remoto" && v.categoria === cat).length]),
   ) as Record<Categoria, number>;
@@ -34,7 +38,19 @@ function contagens(mundo: Mundo) {
     hibrido: abertas.filter((v) => v.modelo === "hibrido").length,
     remoto: abertas.filter((v) => v.modelo === "remoto").length,
   };
-  return { abertas: abertas.length, total: mundo.vagas.length, porCategoria, porModelo };
+  return { abertas: abertas.length, total: daArea.length, porCategoria, porModelo };
+}
+
+/** Lado do rio onde o personagem está, lido do loop de render (sem atualizar o React a cada quadro). */
+function useAreaAtual(mundo: Mundo): Area {
+  return useSyncExternalStore(
+    (onChange) => {
+      const id = window.setInterval(onChange, 400);
+      return () => window.clearInterval(id);
+    },
+    () => (mundo.tipo === "remoto" || mundo.naVila(playerRuntime.position.x) ? "remoto" : "cidade"),
+    () => (mundo.tipo === "remoto" ? "remoto" : "cidade"),
+  );
 }
 
 function useMedia(query: string) {
@@ -52,9 +68,10 @@ function useMedia(query: string) {
 // ── Top-left: wooden sign ───────────────────────────────────────────────
 function PlacaArea() {
   const mundo = useMundo();
-  const info = useMemo(() => contagens(mundo), [mundo]);
-  const AreaIcon = mundo.tipo === "cidade" ? CityIcon : VillageIcon;
-  const nome = mundo.uf ? `${mundo.nome} · ${mundo.uf}` : mundo.nome;
+  const area = useAreaAtual(mundo);
+  const info = useMemo(() => contagens(mundo, area), [mundo, area]);
+  const AreaIcon = area === "cidade" ? CityIcon : VillageIcon;
+  const nome = area === "remoto" ? "Bairro Remoto" : `${mundo.nome} · ${mundo.uf}`;
   return (
     <aside
       aria-label="Área atual"
@@ -67,10 +84,10 @@ function PlacaArea() {
           <AreaIcon size={22} />
         </span>
         <div>
-          <h1 className="fonte-serifa text-sm leading-tight font-bold md:text-lg">{nome}</h1>
+          <h1 aria-live="polite" className="fonte-serifa text-sm leading-tight font-bold md:text-lg">{nome}</h1>
           <p className="text-[11px] text-[#ffe9c7] md:text-xs">
             <strong className="text-white">{info.abertas}</strong>{" "}
-            {info.abertas === 1 ? "vaga" : "vagas"} {mundo.tipo === "remoto" ? "remotas " : ""}
+            {info.abertas === 1 ? "vaga" : "vagas"} {area === "remoto" ? "remotas " : ""}
             {info.abertas === 1 ? "aberta" : "abertas"} de {info.total}
           </p>
         </div>
@@ -104,7 +121,7 @@ function Legenda() {
   const [aberta, setAberta] = useState(false);
   const mundo = useMundo();
   const { porCategoria, porModelo } = useMemo(() => contagens(mundo), [mundo]);
-  const modelos = (mundo.tipo === "remoto" ? ["remoto"] : ["presencial", "hibrido"]) as Modelo[];
+  const modelos = (mundo.tipo === "remoto" ? ["remoto"] : ["presencial", "hibrido", "remoto"]) as Modelo[];
   return (
     <aside aria-label="Legenda" className="absolute top-[4.75rem] right-3 flex flex-col items-end md:top-4 md:right-4">
       <button
@@ -256,10 +273,8 @@ function BalaoProximidade({ touch }: { touch: boolean }) {
 export type AcaoPortal = { rotulo: string; aoUsar: () => void };
 
 function BotaoPortal({ portal, compact }: { portal: AcaoPortal; compact: boolean }) {
-  const mundo = useMundo();
-  const paraRemoto = mundo.tipo === "cidade";
-  const Icon = paraRemoto ? VillageIcon : CityIcon;
-  const color = paraRemoto ? MODELO_COLORS.remoto : MODELO_COLORS.presencial;
+  const Icon = CityIcon;
+  const color = MODELO_COLORS.presencial;
   // Blur the button so SPACE (jump) doesn't click it again.
   const usar = (e: MouseEvent<HTMLButtonElement>) => {
     e.currentTarget.blur();
@@ -287,7 +302,58 @@ function BotaoPortal({ portal, compact }: { portal: AcaoPortal; compact: boolean
   );
 }
 
-function Navegacao({ narrow, portal }: { narrow: boolean; portal: AcaoPortal }) {
+type CartaoAreaProps = { area: Area; compact: boolean; disabled: boolean; abertas: number; onGo: (e: MouseEvent<HTMLButtonElement>) => void };
+
+function CartaoArea({ area, compact, disabled, abertas, onGo }: CartaoAreaProps) {
+  const Icon = area === "cidade" ? CityIcon : VillageIcon;
+  const label = area === "cidade" ? "Ir para a cidade" : "Ir para o Bairro Remoto";
+  const color = area === "cidade" ? MODELO_COLORS.presencial : MODELO_COLORS.remoto;
+  return (
+    <button
+      type="button"
+      onClick={onGo}
+      disabled={disabled}
+      aria-label={compact ? `${label} (${abertas} vagas abertas)` : undefined}
+      className={`cartao-mapa pointer-events-auto flex items-center gap-2.5 rounded-xl text-left disabled:opacity-60 ${
+        compact ? "size-11 justify-center" : "w-52 px-3 py-2"
+      }`}
+    >
+      <span className="grid size-8 shrink-0 place-items-center rounded-lg text-white" style={{ background: color }}>
+        <Icon size={18} />
+      </span>
+      {!compact && (
+        <span className="min-w-0">
+          <span className="block text-sm leading-tight font-bold">{label}</span>
+          <span className="block text-xs text-[#5c4630]">{abertas} vagas abertas</span>
+        </span>
+      )}
+    </button>
+  );
+}
+
+/** Na cidade, a vila fica do outro lado da ponte: os botões levam o personagem até cada lado. */
+function Viagens({ compact }: { compact: boolean }) {
+  const mundo = useMundo();
+  const viajar = useGameStore((s) => s.viajar);
+  const viajando = useGameStore((s) => s.viagem !== null);
+  const cidade = useMemo(() => contagens(mundo, "cidade"), [mundo]);
+  const remoto = useMemo(() => contagens(mundo, "remoto"), [mundo]);
+  // Blur the button so SPACE (jump) doesn't click it again.
+  const ir = (destino: { x: number; z: number }) => (e: MouseEvent<HTMLButtonElement>) => {
+    e.currentTarget.blur();
+    viajar(destino);
+  };
+  return (
+    <>
+      <CartaoArea area="cidade" compact={compact} disabled={viajando} abertas={cidade.abertas} onGo={ir(mundo.nascimento.praca)} />
+      {mundo.nascimento.vila && (
+        <CartaoArea area="remoto" compact={compact} disabled={viajando} abertas={remoto.abertas} onGo={ir(mundo.nascimento.vila)} />
+      )}
+    </>
+  );
+}
+
+function Navegacao({ narrow, portal }: { narrow: boolean; portal?: AcaoPortal }) {
   const zoom = useGameStore((s) => s.zoom);
   const round =
     "pointer-events-auto grid size-10 place-items-center rounded-full border border-white/15 bg-[#1d2127]/85 text-lg font-semibold text-white shadow-lg transition hover:bg-[#2a2f37] active:scale-95";
@@ -308,14 +374,15 @@ function Navegacao({ narrow, portal }: { narrow: boolean; portal: AcaoPortal }) 
             </button>
           </div>
         )}
-        <BotaoPortal portal={portal} compact={narrow} />
+        {portal ? <BotaoPortal portal={portal} compact={narrow} /> : <Viagens compact={narrow} />}
       </div>
       <Minimap size={narrow ? 116 : 176} />
     </nav>
   );
 }
 
-export function Hud({ portal }: { portal: AcaoPortal }) {
+/** `portal`: só no Bairro Remoto avulso (`/remoto`), para voltar. */
+export function Hud({ portal }: { portal?: AcaoPortal }) {
   const narrow = useMedia("(max-width: 767px)");
   const touch = useMedia("(pointer: coarse)");
   return (

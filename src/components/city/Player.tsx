@@ -4,7 +4,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { Desenvolvedor, applyGait, type GaitState, type Rig } from "@/components/personagem/Desenvolvedor";
-import { useGameStore } from "@/stores/game";
+import { useGameStore, type Viagem } from "@/stores/game";
 import { useMundo } from "./mundo";
 import { playerRuntime } from "./playerRuntime";
 import { arvoresDoMundo, dentroDeCopa } from "./Trees";
@@ -28,6 +28,10 @@ const _target = new THREE.Vector3();
 const _dir = new THREE.Vector3();
 const _probe = new THREE.Vector3();
 const _desired = new THREE.Vector3();
+
+type AnimViagem = { from: THREE.Vector2; to: THREE.Vector2; t: number; duration: number; arc: number };
+
+const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 /** Onde o personagem aparece e para onde a câmera olha (yaw 0 = câmera ao sul, olhando para o norte). */
 export type Inicio = { x: number; z: number; yaw: number };
@@ -54,6 +58,8 @@ export function Player({ inicio, aoAtravessar }: { inicio: Inicio; aoAtravessar?
     gait: { phase: 0, move: 0, run: 0, air: 0, land: 0, time: 0 } as GaitState,
     speed: 0,
     nearbyTimer: 0,
+    viagem: null as Viagem | null,
+    anim: null as AnimViagem | null,
     cameraReady: false,
     cameraDistance: useGameStore.getState().cameraDistance,
   });
@@ -130,11 +136,38 @@ export function Player({ inicio, aoAtravessar }: { inicio: Inicio; aoAtravessar?
     const prevX = s.x;
     const prevZ = s.z;
 
+    // Nova viagem pedida pelo HUD ("Ir para a cidade" / "Ir para o Bairro Remoto").
+    if (store.viagem && store.viagem !== s.viagem) {
+      s.viagem = store.viagem;
+      const from = new THREE.Vector2(s.x, s.z);
+      const to = new THREE.Vector2(store.viagem.x, store.viagem.z);
+      const distance = from.distanceTo(to);
+      s.anim = { from, to, t: 0, duration: THREE.MathUtils.clamp(distance / 55, 1.2, 3), arc: Math.min(22, distance * 0.15) };
+      s.facing = Math.atan2(to.x - from.x, to.y - from.y);
+    }
+
+    if (s.anim) {
+      const a = s.anim;
+      // Tempo real (não o dt limitado) para a viagem durar o mesmo em qualquer FPS.
+      a.t = Math.min(1, a.t + Math.min(rawDelta, 0.25) / a.duration);
+      const e = easeInOut(a.t);
+      s.x = THREE.MathUtils.lerp(a.from.x, a.to.x, e);
+      s.z = THREE.MathUtils.lerp(a.from.y, a.to.y, e);
+      s.y = mundo.alturaDoPasso(s.x, s.z) + Math.sin(Math.PI * e) * a.arc;
+      s.vy = 0;
+      if (a.t >= 1) {
+        s.anim = null;
+        s.grounded = true;
+        s.gait.land = 1;
+        store.fimViagem();
+      }
+    }
+
     const k = keys.current;
     const forward = Number(k.has("KeyW") || k.has("ArrowUp")) - Number(k.has("KeyS") || k.has("ArrowDown"));
     const strafe = Number(k.has("KeyD") || k.has("ArrowRight")) - Number(k.has("KeyA") || k.has("ArrowLeft"));
 
-    if (forward !== 0 || strafe !== 0) {
+    if (!s.anim && (forward !== 0 || strafe !== 0)) {
       const sin = Math.sin(s.yaw);
       const cos = Math.cos(s.yaw);
       // Frente = da câmera para o personagem; direita = frente × cima.
@@ -157,23 +190,25 @@ export function Player({ inicio, aoAtravessar }: { inicio: Inicio; aoAtravessar?
       s.facing = Math.atan2(dx, dz);
     }
 
-    if (k.has("Space") && s.grounded) {
+    if (!s.anim && k.has("Space") && s.grounded) {
       s.vy = JUMP_SPEED;
       s.grounded = false;
     }
 
-    const floor = mundo.alturaDoPasso(s.x, s.z);
-    s.vy -= GRAVITY * dt;
-    s.y += s.vy * dt;
-    // Gruda no chão em descidas suaves; sobe degraus pequenos (ponte, calçada).
-    if (s.y <= floor || (s.grounded && s.vy <= 0 && s.y - floor < 0.45)) {
-      // Touchdown after a real fall: knees absorb it in proportion to the impact speed.
-      if (!s.grounded && s.vy < -3) s.gait.land = Math.min(1, -s.vy / 10);
-      s.y = floor;
-      s.vy = 0;
-      s.grounded = true;
-    } else {
-      s.grounded = false;
+    if (!s.anim) {
+      const floor = mundo.alturaDoPasso(s.x, s.z);
+      s.vy -= GRAVITY * dt;
+      s.y += s.vy * dt;
+      // Gruda no chão em descidas suaves; sobe degraus pequenos (ponte, calçada).
+      if (s.y <= floor || (s.grounded && s.vy <= 0 && s.y - floor < 0.45)) {
+        // Touchdown after a real fall: knees absorb it in proportion to the impact speed.
+        if (!s.grounded && s.vy < -3) s.gait.land = Math.min(1, -s.vy / 10);
+        s.y = floor;
+        s.vy = 0;
+        s.grounded = true;
+      } else {
+        s.grounded = false;
+      }
     }
 
     // Modelo
@@ -184,7 +219,7 @@ export function Player({ inicio, aoAtravessar }: { inicio: Inicio; aoAtravessar?
       g.rotation.y += turn * Math.min(1, dt * 12);
     }
     // Gait driven by the distance actually travelled (after collisions), so feet don't skate.
-    const travelled = Math.hypot(s.x - prevX, s.z - prevZ);
+    const travelled = s.anim ? 0 : Math.hypot(s.x - prevX, s.z - prevZ);
     s.speed += (travelled / Math.max(dt, 1e-4) - s.speed) * (1 - Math.exp(-dt * 10));
     const gait = s.gait;
     gait.time += dt;
@@ -194,7 +229,7 @@ export function Player({ inicio, aoAtravessar }: { inicio: Inicio; aoAtravessar?
       const step = THREE.MathUtils.lerp(WALK_STEP, RUN_STEP, gait.run);
       gait.phase += (travelled / (2 * step)) * Math.PI * 2;
     }
-    const inAir = s.grounded ? 0 : 1;
+    const inAir = s.anim || !s.grounded ? 1 : 0;
     gait.air += (inAir - gait.air) * (1 - Math.exp(-dt * 14));
     gait.land *= Math.exp(-dt * 7);
     if (rig.current) applyGait(rig.current, gait);
@@ -229,7 +264,7 @@ export function Player({ inicio, aoAtravessar }: { inicio: Inicio; aoAtravessar?
       lookTarget.current.copy(target);
       s.cameraReady = true;
     } else {
-      const follow = 1 - Math.exp(-dt * 7);
+      const follow = 1 - Math.exp(-dt * (s.anim ? 10 : 7));
       camera.position.lerp(desired, follow);
       lookTarget.current.lerp(target, follow);
     }
@@ -239,7 +274,7 @@ export function Player({ inicio, aoAtravessar }: { inicio: Inicio; aoAtravessar?
     s.nearbyTimer -= dt;
     if (s.nearbyTimer <= 0) {
       s.nearbyTimer = NEARBY_INTERVAL;
-      const nearby = mundo.vagaProxima(s.x, s.z);
+      const nearby = s.anim ? null : mundo.vagaProxima(s.x, s.z);
       if (nearby !== store.nearbyVagaId) store.setNearbyVaga(nearby);
     }
 

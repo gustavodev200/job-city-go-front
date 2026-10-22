@@ -58,28 +58,23 @@ Números do mock hoje: maior cidade Goiânia (28 vagas), várias com 1 vaga;
   mesmo com remoção, mas gera buracos e colisões a resolver); manter `x`/`z`
   escritos à mão (só serve para Goiânia).
 
-## R3. Cidade e Bairro Remoto como mundos separados, ligados por ponte e portal
+## R3. Cidade e Bairro Remoto na mesma cena; `/remoto` avulso
 
-- **Decisão**: cada cidade (`/cidade/[slug]`) tem a cidade gerada + rio,
-  ponte e um **portal "Bairro Remoto"** na margem leste (onde hoje começa a
-  subida da vila). Atravessar o portal navega para `/remoto?de=<slug>`. O
-  Bairro Remoto (`/remoto`) é o planalto atual da vila, com a ponte e um
-  portal de volta na margem oeste ("Voltar para Anápolis", ou "Voltar ao
-  mapa" sem `de`), que navega para `/cidade/<de>?chegada=ponte` (o
-  personagem nasce na cabeceira da ponte) ou `/`. Botão do HUD faz o mesmo
-  que o portal (acessível por teclado). O mapa do Brasil continua levando a
-  `/remoto` (ilha da 001).
-- **Bairro Remoto**: grade de quarteirões 14 com rua 4 (escala da vila
-  atual) e **4 casas por quarteirão** (`REMOTE_HOUSE` é pequena), mesma regra
-  de ordem/estabilidade da R2; 50 vagas → 13 quarteirões → 4×4. Toda vaga
-  remota do mock, nenhuma outra (FR-007).
-- **Motivo**: FR-008 (acesso pelo mapa e por qualquer cidade, com retorno)
-  sem pôr 50 casas remotas em cada cidade (custo dobrado na maior cidade e
-  no celular, SC-004); mantém a ponte e a travessia do jogo atual; o mundo
-  remoto é o mesmo para todo o país (nacional).
-- **Alternativas**: vila anexada a toda cidade (mundo único como hoje: mais
-  pesado, e `/remoto` direto teria que escolher uma cidade arbitrária a
-  oeste); teletransporte por botão só (perde a ponte, que é parte do charme).
+- **Decisão (revista em 2026-10-22 a pedido do dono do produto)**: cada cidade
+  (`/cidade/[slug]`) mostra **tudo junto**: a cidade gerada a oeste do rio e, do
+  outro lado da ponte, o planalto do **Bairro Remoto** com todas as vagas remotas
+  do país — como o mundo original (cidade + vila). Não há portal na cidade: anda-se
+  pela ponte, ou usam-se os botões "Ir para a cidade" / "Ir para o Bairro Remoto"
+  (viagem animada, como antes). A placa do HUD troca conforme o lado do rio.
+  `/remoto` (atalho do mapa do Brasil) continua como mundo só com a vila e um
+  portal/botão de volta ("Voltar para <cidade>" com `?de=`, ou "Voltar ao mapa").
+- **Bairro Remoto**: quarteirões 14 com rua 4, **4 casas por quarteirão**, mesma
+  regra de ordem/estabilidade da R2; 50 vagas → 13 quarteirões.
+- **Motivo**: o dono do produto quer ver presencial/híbrida e remota juntas, sem
+  trocar de página. Custo medido: ~50 casas a mais por cidade, poucas chamadas de
+  desenho (instâncias).
+- **Alternativa descartada**: mundos separados ligados por portal (primeira versão
+  desta feature) — obrigava a trocar de página para ver as remotas.
 
 ## R4. Rotas, parâmetros e o fim de `/cidade/goiania-go`
 

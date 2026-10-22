@@ -178,4 +178,6 @@ Desvios do plano:
 - **T035**: os E2E rodaram contra `next start -p 3200` (a 3000 estava com o dev server): 27 passam, 9 pulados por projeto (desktop/mobile). A varredura SC-002 da 002 não foi repetida (nível Estado não mudou).
 - **T037**: chamadas de desenho por quadro (1440×900, desktop com sombras — cada objeto conta duas vezes): Gurupi (1 vaga) ≈ 198, Goiânia (28) ≈ 212, Bairro Remoto (50) ≈ 179. Quase constante: não cresce com o número de vagas. Tempo até andar não foi cronometrado.
 
+- **Revisão pedida pelo dono do produto (mesmo dia)**: o Bairro Remoto passou a ficar na mesma cena de cada cidade, do outro lado da ponte (research R3 revista). `gerarVila` é compartilhada pelo mundo da cidade e pelo `/remoto` avulso; `Mundo.vila`, `Mundo.portal` (só no `/remoto`), `nascimento.vila` e `naVila(x)`. Voltaram os botões "Ir para a cidade" / "Ir para o Bairro Remoto" com a viagem animada (`useGameStore.viajar`); a placa do HUD troca conforme o lado do rio; a legenda da cidade mostra também "Casa remota". E2E: 28 passam, 10 pulados por projeto.
+
 **T038 em aberto**: lint, 79 testes unitários, E2E e build passam; conferido por screenshot Goiânia, Gurupi, Bairro Remoto com `?de=` e `?vaga=`. Falta percorrer o quickstart à mão (andar até a ponte e atravessar o portal, leitura aberta × encerrada com pessoas — SC-003, celular físico).

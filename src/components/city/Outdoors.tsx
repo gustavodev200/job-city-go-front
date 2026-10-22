@@ -108,15 +108,16 @@ const lesteAntes = (centros: readonly number[]) => [...centros].sort((a, b) => b
 
 /** Grupos de candidatos: cada grupo pega os primeiros `count` que couberem. */
 function gruposDoMundo(mundo: Mundo): { count: number; candidates: Slot[] }[] {
-  const { praca, ruasX, centrosX, centrosZ, urbano, ponte } = mundo;
+  const { praca, ruasX, centrosX, centrosZ, urbano, ponte, vila } = mundo;
   const bridgeAvenue: Road = { axis: "x", line: 0, flow: 1 };
-  if (mundo.tipo === "remoto") {
-    // Estrada de terra da ponte até a vila (z = 0) e rua principal da vila.
-    return [
-      { count: 2, candidates: slots(bridgeAvenue, [[ponte.x1 + 3, -1], [ponte.x1 + 8, 1], [ponte.x1 + 3, 1], [ponte.x1 + 8, -1]]) },
-      { count: 2, candidates: slots(bridgeAvenue, alternando([...centrosX].sort((a, b) => a - b))) },
-    ];
-  }
+  // Estrada de terra da ponte até a vila (z = 0) e rua principal da vila.
+  const grupoVila = vila
+    ? [
+        { count: 2, candidates: slots(bridgeAvenue, [[ponte.x1 + 3, -1], [ponte.x1 + 8, 1], [ponte.x1 + 3, 1], [ponte.x1 + 8, -1]]) },
+        { count: 2, candidates: slots(bridgeAvenue, alternando([...vila.centrosX].sort((a, b) => a - b))) },
+      ]
+    : [];
+  if (mundo.tipo === "remoto") return grupoVila;
   // Rua no sentido norte–sul mais perto do centro (x = 0 na cidade original).
   const central = [...ruasX].sort((a, b) => Math.abs(a) - Math.abs(b))[0];
   const avenida = (urbano.maxX + ponte.x0) / 2;
@@ -133,6 +134,7 @@ function gruposDoMundo(mundo: Mundo): { count: number; candidates: Slot[] }[] {
           ]
         : [],
     },
+    ...grupoVila,
   ];
 }
 

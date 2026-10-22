@@ -37,11 +37,14 @@ function lotesNaoSobrepostos(m: Mundo) {
 }
 
 describe("gerarMundo — cidade", () => {
-  it("toda vaga da cidade em exatamente um lote, nenhuma de outra cidade (SC-002)", () => {
+  it("cidade: suas vagas presenciais/híbridas + todas as remotas na vila; nenhuma de outra cidade (SC-002)", () => {
+    const remotas = vagasBrasil.filter((v) => v.modelo === "remoto").map((v) => v.id);
     for (const c of cidades) {
       const m = mundoDaCidade(c.id)!;
       const esperadas = vagasBrasil.filter((v) => v.cidadeId === c.id && v.modelo !== "remoto").map((v) => v.id);
-      expect(m.lotes.map((l) => l.vaga.id).sort(), c.id).toEqual(esperadas.sort());
+      expect(m.lotes.map((l) => l.vaga.id).sort(), c.id).toEqual([...esperadas, ...remotas].sort());
+      // Remotas só do outro lado do rio; presenciais/híbridas só do lado da cidade.
+      for (const l of m.lotes) expect(m.naVila(l.x), l.vaga.id).toBe(l.vaga.modelo === "remoto");
       lotesNaoSobrepostos(m);
     }
   });
@@ -93,7 +96,11 @@ describe("gerarMundo — cidade", () => {
     expect(m.bloqueado(m.nascimento.praca.x, m.nascimento.praca.z, 0.4)).toBe(false);
     expect(m.bloqueado(m.nascimento.ponte.x, m.nascimento.ponte.z, 0.4)).toBe(false);
     expect(m.noPortal(m.nascimento.ponte.x, m.nascimento.ponte.z)).toBe(false);
-    expect(m.noPortal(m.ponte.x1 + 4, 0)).toBe(true);
+    // Sem portal: a vila fica na mesma cena, do outro lado da ponte.
+    expect(m.portal).toBeNull();
+    expect(m.noPortal(m.ponte.x1 + 4, 0)).toBe(false);
+    expect(m.bloqueado(m.nascimento.vila!.x, m.nascimento.vila!.z, 0.4)).toBe(false);
+    expect(m.alturaDoPasso(m.nascimento.vila!.x, m.nascimento.vila!.z)).toBeCloseTo(m.colina!.altura);
     expect(m.alturaDoPasso(m.rio.x, 0)).toBeCloseTo(m.ponte.topo);
   });
 

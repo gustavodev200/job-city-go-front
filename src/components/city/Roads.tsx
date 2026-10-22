@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import * as THREE from "three";
-import { FONTE_RAIO as FOUNTAIN_RADIUS, LOT_TOP, QUARTEIRAO as CITY_BLOCK_SIZE, type Mundo, type Ponto } from "@/lib/cidade/mundo";
+import { FONTE_RAIO as FOUNTAIN_RADIUS, LOT_TOP, QUARTEIRAO as CITY_BLOCK_SIZE, type Mundo, type Ponto, type Vila } from "@/lib/cidade/mundo";
 import type { Instance, Part } from "./facades";
 import { InstancedParts } from "./Instanced";
 import { useMundo } from "./mundo";
@@ -203,8 +203,9 @@ function useSlopeRoadGeometry(groundHeight: (x: number) => number, x0: number, x
   }, [groundHeight, x0, x1, z, width]);
 }
 
-function VillageRoads({ mundo }: { mundo: Mundo }) {
-  const { ponte, urbano, ruasX, ruasZ, larguraRua, alturaDoChao, limites } = mundo;
+function VillageRoads({ mundo, vila }: { mundo: Mundo; vila: Vila }) {
+  const { ponte, alturaDoChao, limites } = mundo;
+  const { urbano, ruasX, ruasZ, larguraRua } = vila;
   const slope = useSlopeRoadGeometry(alturaDoChao, ponte.x1 - 0.5, urbano.minX + 2, 0, larguraRua);
   const top = alturaDoChao(urbano.minX + 2);
   const spanX = ruasX.at(-1)! - ruasX[0] + larguraRua;
@@ -215,7 +216,8 @@ function VillageRoads({ mundo }: { mundo: Mundo }) {
 
   return (
     <group>
-      {/* Margem oeste: estradinha da ponte até o portal de volta. */}
+      {/* Bairro Remoto avulso: estradinha da margem oeste até o portal de volta. */}
+      {mundo.tipo === "remoto" && (
       <mesh
         position={[limites.minX + margemOeste / 2, alturaDoChao(limites.minX) + 0.05, 0]}
         rotation-x={-Math.PI / 2}
@@ -224,6 +226,7 @@ function VillageRoads({ mundo }: { mundo: Mundo }) {
         <planeGeometry args={[margemOeste + 0.5, larguraRua]} />
         <meshStandardMaterial color={DIRT} polygonOffset polygonOffsetFactor={-1} />
       </mesh>
+      )}
       <mesh geometry={slope} receiveShadow>
         <meshStandardMaterial color={DIRT} />
       </mesh>
@@ -245,7 +248,7 @@ function VillageRoads({ mundo }: { mundo: Mundo }) {
 
 function CityRoads({ mundo }: { mundo: Mundo }) {
   const r = useMemo(() => ruasDaCidade(mundo), [mundo]);
-  const { urbano, ponte, limites, praca, larguraRua } = mundo;
+  const { urbano, ponte, praca, larguraRua } = mundo;
   return (
     <>
       <mesh
@@ -256,13 +259,9 @@ function CityRoads({ mundo }: { mundo: Mundo }) {
         <planeGeometry args={[urbano.maxX - urbano.minX, urbano.maxZ - urbano.minZ]} />
         <meshStandardMaterial color="#858a90" polygonOffset polygonOffsetFactor={-1} />
       </mesh>
-      {/* Avenida da cidade até a ponte e, do outro lado, até o portal do Bairro Remoto. */}
+      {/* Avenida da cidade até a ponte (do outro lado começa a estrada do Bairro Remoto). */}
       <mesh position={[(urbano.maxX + ponte.x0) / 2, ASPHALT_Y, 0]} rotation-x={-Math.PI / 2} receiveShadow>
         <planeGeometry args={[ponte.x0 - urbano.maxX + 0.5, larguraRua]} />
-        <meshStandardMaterial color="#858a90" polygonOffset polygonOffsetFactor={-1} />
-      </mesh>
-      <mesh position={[(ponte.x1 + limites.maxX) / 2, ASPHALT_Y, 0]} rotation-x={-Math.PI / 2} receiveShadow>
-        <planeGeometry args={[limites.maxX - ponte.x1 + 0.5, larguraRua]} />
         <meshStandardMaterial color="#858a90" polygonOffset polygonOffsetFactor={-1} />
       </mesh>
       <InstancedParts parts={SIDEWALK} instances={r.sidewalk} />
@@ -280,5 +279,10 @@ function CityRoads({ mundo }: { mundo: Mundo }) {
 
 export function Roads() {
   const mundo = useMundo();
-  return mundo.tipo === "cidade" ? <CityRoads mundo={mundo} /> : <VillageRoads mundo={mundo} />;
+  return (
+    <>
+      {mundo.tipo === "cidade" && <CityRoads mundo={mundo} />}
+      {mundo.vila && <VillageRoads mundo={mundo} vila={mundo.vila} />}
+    </>
+  );
 }

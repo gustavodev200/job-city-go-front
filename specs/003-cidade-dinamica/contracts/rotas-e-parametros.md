@@ -45,11 +45,10 @@ hrefCidade(id, { chegada? })   → "/cidade/anapolis-go" | "/cidade/anapolis-go?
 
 ## Travessia
 
-| De | Ação | Para |
+| Onde | Ação | Resultado |
 |---|---|---|
-| Cidade X | atravessar o portal leste ou botão "Bairro Remoto" | `/remoto?de=X` (push) |
-| Remoto com `?de=X` | atravessar o portal oeste ou botão "Voltar para X" | `/cidade/X?chegada=ponte` (push) |
-| Remoto sem `de` | idem | `/` (push) |
+| Cidade X | atravessar a ponte a pé ou botão "Ir para o Bairro Remoto" | mesma página; personagem no Bairro Remoto (placa troca) |
+| Cidade X (no Bairro Remoto) | botão "Ir para a cidade" | volta à praça |
+| `/remoto` com `?de=X` | portal oeste ou botão "Voltar para X" | `/cidade/X?chegada=ponte` (push) |
+| `/remoto` sem `de` | idem | `/` (push) |
 | Mapa do Brasil | ilha/atalho Bairro Remoto (001) | `/remoto` |
-
-O botão voltar do navegador desfaz a travessia (histórico normal).

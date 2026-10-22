@@ -38,7 +38,7 @@ export default function CityScene({ inicio, rotuloPortal, aoAtravessar }: Props)
       <Buildings />
       <Trees />
       <Outdoors lights={!narrow} />
-      <Portal rotulo={rotuloPortal} />
+      {mundo.portal && <Portal rotulo={rotuloPortal} />}
       <Player inicio={inicio} aoAtravessar={aoAtravessar} />
     </Canvas>
   );
