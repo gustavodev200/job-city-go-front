@@ -20,7 +20,6 @@ import { Relevo } from "./Relevo";
 import { RotulosCidade } from "./RotulosCidade";
 import { RotulosUf } from "./RotulosUf";
 import { mapaRuntime } from "./runtime";
-import { TorresVagas } from "./TorresVagas";
 
 const focoDaCamera = () => mapaRuntime.alvo;
 
@@ -59,7 +58,6 @@ function CamadaEstado() {
 
 export default function BrasilCena({ onContextoPerdido }: { onContextoPerdido: () => void }) {
   const narrow = useIsNarrow();
-  const modo = useMapaStore((s) => s.modo);
   return (
     <Canvas
       dpr={[1, narrow ? 1.5 : 2]}
@@ -75,7 +73,6 @@ export default function BrasilCena({ onContextoPerdido }: { onContextoPerdido: (
       <Mar />
       <Relevo />
       <Bordas />
-      {modo === "luzes" && <TorresVagas />}
       <IlhaRemota />
       <RotulosUf />
       <CamadaEstado />
