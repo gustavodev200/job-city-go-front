@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import { ChegadaSchema, DeSchema, hrefCidade, hrefRemoto, vagaSchema } from "@/lib/brasil/rotas";
 
 describe("parâmetros do nível Cidade", () => {
-  it("?chegada só aceita ponte", () => {
+  it("?chegada só aceita ponte e estrada", () => {
     expect(ChegadaSchema.parse("ponte")).toBe("ponte");
+    expect(ChegadaSchema.parse("estrada")).toBe("estrada");
     expect(ChegadaSchema.parse("praia")).toBeUndefined();
     expect(ChegadaSchema.parse(undefined)).toBeUndefined();
   });
@@ -24,6 +25,9 @@ describe("parâmetros do nível Cidade", () => {
   it("hrefs", () => {
     expect(hrefCidade("anapolis-go")).toBe("/cidade/anapolis-go");
     expect(hrefCidade("anapolis-go", { chegada: "ponte" })).toBe("/cidade/anapolis-go?chegada=ponte");
+    expect(hrefCidade("anapolis-go", { chegada: "estrada", de: "goiania-go" })).toBe(
+      "/cidade/anapolis-go?chegada=estrada&de=goiania-go",
+    );
     expect(hrefRemoto()).toBe("/remoto");
     expect(hrefRemoto("anapolis-go")).toBe("/remoto?de=anapolis-go");
   });

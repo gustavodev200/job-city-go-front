@@ -2,6 +2,8 @@
 // determinístico: mesma entrada, mesmo mundo. Unidades da cena (~1 = 1 metro).
 import { FACADES, FILLER_HOUSES, REMOTE_HOUSE, TORRE_PATROCINADA } from "@/components/city/facades";
 import { cidades } from "@/data/brasil/cidades";
+import { distanciaKm } from "@/lib/brasil/distancia";
+import { estradasDaCidade, type TipoEstrada } from "@/lib/brasil/estradas";
 import type { Uf } from "@/data/brasil/estados";
 import type { Cidade } from "@/data/brasil/tipos";
 import { vagasBrasil, type VagaNacional } from "@/data/brasil/vagas";
@@ -46,6 +48,13 @@ const VAGAS_ESTACIONAMENTO = [
   [4.5, 3.2, Math.PI],
 ] as const;
 export const N_CORES_CARRO = 3;
+/** Estrada que sai da borda da cidade rumo à vizinha (unidades da cena). */
+export const COMPRIMENTO_SAIDA = 90;
+export const LARGURA_SAIDA = { rodovia: 8, estrada: 6 } as const;
+/** Fim da estrada: atravessar aqui leva à cidade vizinha. */
+const PORTAL_SAIDA = 4;
+/** A chegada pela estrada fica um pouco antes do portal, já de frente para a cidade. */
+const CHEGADA_SAIDA = 26;
 
 // ── Tipos ───────────────────────────────────────────────────────────────
 export type Ponto = { x: number; z: number };
@@ -68,6 +77,29 @@ export type VagaSpot = {
   aberta: boolean;
   modelo: Modelo;
   destaque: boolean;
+};
+
+/** Lado da cidade por onde a estrada sai (a leste ficam o rio e o Bairro Remoto). */
+export type LadoSaida = "norte" | "sul" | "oeste";
+
+/** Estrada do mapa do Brasil que sai desta cidade (mesmo grafo de lib/brasil/estradas). */
+export type Saida = {
+  destinoId: string;
+  destino: string;
+  uf: Uf;
+  km: number;
+  tipo: TipoEstrada;
+  lado: LadoSaida;
+  /** Linha central, da borda urbana (x0, z0) ao fim (x1, z1). */
+  x0: number;
+  z0: number;
+  x1: number;
+  z1: number;
+  largura: number;
+  /** Faixa do fim da estrada que leva à vizinha. */
+  portal: Caixa;
+  /** Onde nasce quem chega por esta estrada. */
+  chegada: Ponto;
 };
 
 export type Rect = { x: number; z: number; hw: number; hd: number; bottom: number; top: number };
@@ -111,6 +143,8 @@ export type Mundo = {
   colina: { inicio: number; fim: number; altura: number } | null;
   /** Bairro Remoto do outro lado da ponte (na cidade, junto com as vagas presenciais/híbridas). */
   vila: Vila | null;
+  /** Estradas para as cidades vizinhas (vazio no Bairro Remoto). */
+  saidas: Saida[];
   /** Só no Bairro Remoto avulso (`/remoto`): margem oeste que leva de volta. */
   portal: Caixa | null;
   /** `praca`: chegada padrão; `ponte`: cabeceira da ponte; `vila`: primeira rua do Bairro Remoto. */
@@ -124,6 +158,8 @@ export type Mundo = {
   dentroDePredio: (x: number, y: number, z: number, folga: number) => boolean;
   vagaProxima: (x: number, z: number) => string | null;
   noPortal: (x: number, z: number) => boolean;
+  /** Estrada cujo fim está sob o ponto (sair da cidade por ela). */
+  saidaEm: (x: number, z: number) => Saida | null;
   /** Lado leste do rio = Bairro Remoto. */
   naVila: (x: number) => boolean;
 };
@@ -176,6 +212,68 @@ const ret = (x: number, z: number, [w, d]: readonly [number, number], base: numb
   top: base + altura,
 });
 
+/**
+ * Uma saída por estrada da cidade no mapa: lado pela direção da vizinha (leste vira norte
+ * ou sul), cada uma no prolongamento de uma rua, distribuídas na ordem em que aparecem.
+ */
+function gerarSaidas(cidade: Cidade, ruasX: number[], ruasZ: number[], urbano: Caixa): Saida[] {
+  const porLado: Record<LadoSaida, { outra: Cidade; tipo: TipoEstrada }[]> = { norte: [], sul: [], oeste: [] };
+  for (const e of estradasDaCidade(cidade.id)) {
+    const outra = cidades.find((c) => c.id === e.outra)!;
+    const dx = outra.x - cidade.x;
+    const dz = outra.z - cidade.z;
+    const lado: LadoSaida = dx < 0 && -dx >= Math.abs(dz) ? "oeste" : dz < 0 ? "norte" : "sul";
+    porLado[lado].push({ outra, tipo: e.tipo });
+  }
+  const saidas: Saida[] = [];
+  for (const lado of ["norte", "sul", "oeste"] as const) {
+    const lista = porLado[lado].sort((a, b) => (lado === "oeste" ? a.outra.z - b.outra.z : a.outra.x - b.outra.x));
+    const linhas = lado === "oeste" ? ruasZ : ruasX;
+    const usadas = new Set<number>();
+    lista.forEach(({ outra, tipo }, i) => {
+      // Espalha pelas ruas; se faltar rua, divide a mesma.
+      let k = Math.min(linhas.length - 1, Math.floor(((i + 0.5) / lista.length) * linhas.length));
+      while (usadas.has(k) && usadas.size < linhas.length) k = (k + 1) % linhas.length;
+      usadas.add(k);
+      const linha = linhas[k];
+      const largura = LARGURA_SAIDA[tipo];
+      const m = largura / 2;
+      const base = { destinoId: outra.id, destino: outra.nome, uf: outra.uf, km: distanciaKm(cidade, outra), tipo, lado, largura };
+      if (lado === "oeste") {
+        const x1 = urbano.minX - COMPRIMENTO_SAIDA;
+        saidas.push({
+          ...base,
+          x0: urbano.minX,
+          z0: linha,
+          x1,
+          z1: linha,
+          portal: { minX: x1 - 2, maxX: x1 + PORTAL_SAIDA, minZ: linha - m, maxZ: linha + m },
+          chegada: { x: x1 + CHEGADA_SAIDA, z: linha },
+        });
+      } else {
+        const s = lado === "norte" ? -1 : 1;
+        const z0 = lado === "norte" ? urbano.minZ : urbano.maxZ;
+        const z1 = z0 + s * COMPRIMENTO_SAIDA;
+        saidas.push({
+          ...base,
+          x0: linha,
+          z0,
+          x1: linha,
+          z1,
+          portal: {
+            minX: linha - m,
+            maxX: linha + m,
+            minZ: Math.min(z1 - s * PORTAL_SAIDA, z1 + s * 2),
+            maxZ: Math.max(z1 - s * PORTAL_SAIDA, z1 + s * 2),
+          },
+          chegada: { x: linha, z: z1 - s * CHEGADA_SAIDA },
+        });
+      }
+    });
+  }
+  return saidas;
+}
+
 const hojeIso = () => new Date().toISOString().slice(0, 10);
 export const destaqueAtivo = (v: VagaNacional, hoje = hojeIso()) => !!v.destaque && v.destaque.ate >= hoje;
 
@@ -222,6 +320,8 @@ function gerarCidade(cidade: Cidade, todas: readonly VagaNacional[]): Mundo {
   const urbano = { minX: ruasX[0] - borda, maxX: ruasX.at(-1)! + borda, minZ: ruasZ[0] - borda, maxZ: ruasZ.at(-1)! + borda };
   const rioX = urbano.maxX + CIDADE_AO_RIO;
   const ponte = { x0: rioX - PONTE.meiaComprimento, x1: rioX + PONTE.meiaComprimento, meiaLargura: PONTE.meiaLargura, topo: PONTE.topo };
+  const saidas = gerarSaidas(cidade, ruasX, ruasZ, urbano);
+  const pontasZ = saidas.map((s) => s.z1);
 
   const colisores: Rect[] = [
     ...lotes.map((l) => {
@@ -259,6 +359,7 @@ function gerarCidade(cidade: Cidade, todas: readonly VagaNacional[]): Mundo {
     ponte,
     colina: bairro.colina,
     vila: bairro.vila,
+    saidas,
     portal: null,
     nascimento: {
       // Na esquina da praça mais perto do centro (a (0, 2) da cidade original).
@@ -266,11 +367,12 @@ function gerarCidade(cidade: Cidade, todas: readonly VagaNacional[]): Mundo {
       ponte: { x: ponte.x0 - 2, z: 0 },
       vila: bairro.chegada,
     },
+    // Inclui as estradas até o fim (e um pouco além do portal).
     limites: {
-      minX: urbano.minX - 15,
+      minX: Math.min(urbano.minX - 15, ...saidas.map((s) => s.x1 - 6)),
       maxX: bairro.vila.urbano.maxX + 15,
-      minZ: Math.min(urbano.minZ, bairro.vila.urbano.minZ) - 15,
-      maxZ: Math.max(urbano.maxZ, bairro.vila.urbano.maxZ) + 15,
+      minZ: Math.min(urbano.minZ, bairro.vila.urbano.minZ, ...pontasZ.map((z) => z - 6)) - 15,
+      maxZ: Math.max(urbano.maxZ, bairro.vila.urbano.maxZ, ...pontasZ.map((z) => z + 6)) + 15,
     },
     spots: [...spots, ...bairro.spots],
     colisores: [...colisores, ...bairro.colisores],
@@ -356,6 +458,7 @@ function gerarRemoto(todas: readonly VagaNacional[]): Mundo {
     ponte,
     colina: bairro.colina,
     vila,
+    saidas: [],
     portal: { minX: -Infinity, maxX: ponte.x0 - 3, minZ: -4, maxZ: 4 },
     nascimento: { praca: bairro.chegada, ponte: { x: ponte.x1 + 2, z: 0 }, vila: bairro.chegada },
     limites: {
@@ -386,7 +489,7 @@ function spot(l: Lote, markerY: number, footprint: readonly [number, number]): V
 
 type Dados = Omit<
   Mundo,
-  "alturaDoChao" | "alturaDoPasso" | "bloqueado" | "dentroDePredio" | "vagaProxima" | "noPortal" | "naVila"
+  "alturaDoChao" | "alturaDoPasso" | "bloqueado" | "dentroDePredio" | "vagaProxima" | "noPortal" | "saidaEm" | "naVila"
 >;
 
 /** Junta os dados às funções de terreno, colisão e interação. */
@@ -442,6 +545,8 @@ function montar(d: Dados): Mundo {
       return melhor;
     },
     noPortal: (x, z) => portal !== null && x >= portal.minX && x <= portal.maxX && z >= portal.minZ && z <= portal.maxZ,
+    saidaEm: (x, z) =>
+      d.saidas.find(({ portal: p }) => x >= p.minX && x <= p.maxX && z >= p.minZ && z <= p.maxZ) ?? null,
     naVila: (x) => d.vila !== null && x > rio.x,
   };
 }

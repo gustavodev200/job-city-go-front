@@ -2,6 +2,7 @@
 
 import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
+import type { Saida } from "@/lib/cidade/mundo";
 import { useIsNarrow } from "@/lib/movimento";
 import { Buildings } from "./Buildings";
 import { DayNight } from "./DayNight";
@@ -10,6 +11,7 @@ import { Outdoors } from "./Outdoors";
 import { Player, type Inicio } from "./Player";
 import { Portal } from "./Portal";
 import { Roads, postesDoMundo } from "./Roads";
+import { Saidas } from "./Saidas";
 import { Terrain } from "./Terrain";
 import { Trees } from "./Trees";
 
@@ -18,9 +20,10 @@ type Props = {
   /** Texto do arco da ponte e ação ao atravessá-lo. */
   rotuloPortal: string;
   aoAtravessar: () => void;
+  aoSair: (saida: Saida) => void;
 };
 
-export default function CityScene({ inicio, rotuloPortal, aoAtravessar }: Props) {
+export default function CityScene({ inicio, rotuloPortal, aoAtravessar, aoSair }: Props) {
   const narrow = useIsNarrow();
   const mundo = useMundo();
   return (
@@ -35,11 +38,12 @@ export default function CityScene({ inicio, rotuloPortal, aoAtravessar }: Props)
       <DayNight shadows={!narrow} pointLights={!narrow} postes={postesDoMundo(mundo)} />
       <Terrain />
       <Roads />
+      <Saidas />
       <Buildings />
       <Trees />
       <Outdoors lights={!narrow} />
       {mundo.portal && <Portal rotulo={rotuloPortal} />}
-      <Player inicio={inicio} aoAtravessar={aoAtravessar} />
+      <Player inicio={inicio} aoAtravessar={aoAtravessar} aoSair={aoSair} />
     </Canvas>
   );
 }

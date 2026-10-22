@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
-import { estradasBrasil, tracado, type PontoEstrada } from "@/lib/brasil/estradas";
+import { estradasBrasil } from "@/lib/brasil/estradas";
+import { tracado, type PontoEstrada } from "@/lib/brasil/tracado";
 import { cidadePorId } from "@/lib/brasil/rotas";
 
 const LARGURA = { rodovia: 0.34, estrada: 0.18 } as const;

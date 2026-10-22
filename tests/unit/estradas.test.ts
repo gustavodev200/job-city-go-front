@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { cidades } from "@/data/brasil/cidades";
 import { gerarArvores } from "@/lib/brasil/arvores";
-import { alturaDaEstrada, estradasBrasil, gerarEstradas, tracado } from "@/lib/brasil/estradas";
+import { estradasBrasil, gerarEstradas } from "@/lib/brasil/estradas";
+import { alturaDaEstrada, tracado } from "@/lib/brasil/tracado";
 import { cidadePorId } from "@/lib/brasil/rotas";
 
 describe("estradas do mapa", () => {

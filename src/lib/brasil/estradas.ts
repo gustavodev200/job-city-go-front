@@ -1,8 +1,8 @@
 // Malha viária ilustrativa do mapa do Brasil: liga todas as cidades do mock. Pura e
 // determinística — é também o grafo por onde o carro vai andar entre cidades e estados.
+// Sem a grade do mapa (o nível Cidade usa o grafo); o traçado 3D fica em ./tracado.
 import { cidades } from "@/data/brasil/cidades";
 import type { Cidade } from "@/data/brasil/tipos";
-import { celulaDoPonto, topoDaCelula } from "./geo";
 
 export type TipoEstrada = "rodovia" | "estrada";
 
@@ -13,13 +13,6 @@ export type Estrada = {
   tipo: TipoEstrada;
   comprimento: number;
 };
-
-export type PontoEstrada = { x: number; y: number; z: number };
-
-/** Sobre o mar (ponte) o tabuleiro fica um pouco acima da água. */
-const ALTURA_PONTE = 0.12;
-/** Folga sobre o relevo para não brigar com o chão. */
-const FOLGA = 0.02;
 
 const distancia = (p: Cidade, q: Cidade) => Math.hypot(p.x - q.x, p.z - q.z);
 
@@ -71,24 +64,6 @@ export function gerarEstradas(lista: readonly Cidade[] = cidades): Estrada[] {
   return saida;
 }
 
-/** Altura do leito da estrada num ponto da cena (topo do degrau do relevo; ponte no mar). */
-export function alturaDaEstrada(x: number, z: number) {
-  const cel = celulaDoPonto(x, z);
-  const topo = cel ? topoDaCelula(cel.col, cel.lin) : 0;
-  return (topo > 0 ? topo : ALTURA_PONTE) + FOLGA;
-}
-
-/** Pontos ao longo da estrada a cada `passo`, seguindo a altura do relevo. */
-export function tracado(de: Cidade, ate: Cidade, passo = 0.2): PontoEstrada[] {
-  const n = Math.max(1, Math.ceil(distancia(de, ate) / passo));
-  return Array.from({ length: n + 1 }, (_, i) => {
-    const t = i / n;
-    const x = de.x + (ate.x - de.x) * t;
-    const z = de.z + (ate.z - de.z) * t;
-    return { x, y: alturaDaEstrada(x, z), z };
-  });
-}
-
 /** Distância do ponto ao segmento (no plano). */
 export function distanciaAoSegmento(x: number, z: number, ax: number, az: number, bx: number, bz: number) {
   const dx = bx - ax;
@@ -99,3 +74,8 @@ export function distanciaAoSegmento(x: number, z: number, ax: number, az: number
 }
 
 export const estradasBrasil = gerarEstradas();
+
+/** Trechos que saem (ou chegam) na cidade, com a cidade do outro lado. */
+export function estradasDaCidade(id: string, rede: readonly Estrada[] = estradasBrasil) {
+  return rede.filter((e) => e.a === id || e.b === id).map((e) => ({ ...e, outra: e.a === id ? e.b : e.a }));
+}

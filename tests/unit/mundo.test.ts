@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { cidades } from "@/data/brasil/cidades";
 import type { Cidade } from "@/data/brasil/tipos";
 import { vagasBrasil, type VagaNacional } from "@/data/brasil/vagas";
+import { estradasDaCidade } from "@/lib/brasil/estradas";
 import { gerarMundo, mundoDaCidade, mundoRemoto, type Mundo } from "@/lib/cidade/mundo";
 
 const FICTICIA: Cidade = {
@@ -140,5 +141,36 @@ describe("gerarMundo — Bairro Remoto", () => {
         expect(Math.abs(a.x - b.x) < a.hw + b.hw && Math.abs(a.z - b.z) < a.hd + b.hd).toBe(false);
       }
     }
+  });
+});
+
+describe("gerarMundo — estradas para as vizinhas", () => {
+  it("uma saída por estrada do mapa; nunca a leste (rio e Bairro Remoto)", () => {
+    for (const c of cidades) {
+      const m = mundoDaCidade(c.id)!;
+      expect(m.saidas.map((s) => s.destinoId).sort(), c.id).toEqual(estradasDaCidade(c.id).map((e) => e.outra).sort());
+      for (const s of m.saidas) {
+        expect(["norte", "sul", "oeste"]).toContain(s.lado);
+        expect(Math.max(s.x0, s.x1)).toBeLessThanOrEqual(m.urbano.maxX);
+      }
+    }
+  });
+
+  it("dá para andar até o fim da estrada; o fim leva à vizinha e a chegada não", () => {
+    const m = mundoDaCidade("goiania-go")!;
+    expect(m.saidas.length).toBeGreaterThan(0);
+    for (const s of m.saidas) {
+      const fim = { x: (s.portal.minX + s.portal.maxX) / 2, z: (s.portal.minZ + s.portal.maxZ) / 2 };
+      expect(m.bloqueado(fim.x, fim.z, 0.4), s.destinoId).toBe(false);
+      expect(m.saidaEm(fim.x, fim.z)?.destinoId).toBe(s.destinoId);
+      expect(m.bloqueado(s.chegada.x, s.chegada.z, 0.4)).toBe(false);
+      expect(m.saidaEm(s.chegada.x, s.chegada.z)).toBeNull();
+    }
+    expect(m.saidaEm(m.nascimento.praca.x, m.nascimento.praca.z)).toBeNull();
+  });
+
+  it("ida e volta: a vizinha tem a estrada de volta", () => {
+    const m = mundoDaCidade("goiania-go")!;
+    for (const s of m.saidas) expect(mundoDaCidade(s.destinoId)!.saidas.some((v) => v.destinoId === "goiania-go")).toBe(true);
   });
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { distanciaAoSegmento } from "@/lib/brasil/estradas";
 import { LOT_TOP, type Mundo, type Ponto } from "@/lib/cidade/mundo";
 import type { Instance, Part } from "./facades";
 import { InstancedParts } from "./Instanced";
@@ -176,7 +177,11 @@ export function arvoresDoMundo(mundo: Mundo): Arvores {
     const fimDaEstrada = mundo.vila ? mundo.vila.urbano.minX : ponte.x1;
     const onRoad = Math.abs(z) < 6 && x > Math.min(urbano.maxX, ponte.x0) - 8 && x < fimDaEstrada + 12;
     const nearPortal = mundo.portal !== null && Math.abs(z) < 10 && x < ponte.x0;
-    if (inUrban || nearRiver || onRoad || nearPortal) continue;
+    // Estradas para as cidades vizinhas (e as placas na beira).
+    const onSaida = mundo.saidas.some(
+      (s) => distanciaAoSegmento(x, z, s.x0, s.z0, s.x1, s.z1) < s.largura / 2 + 3.5,
+    );
+    if (inUrban || nearRiver || onRoad || nearPortal || onSaida) continue;
     placed++;
     const r = rand();
     const highland = (mundo.colina?.altura ?? 0) > 0 && alturaDoChao(x) > 1;

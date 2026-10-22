@@ -34,17 +34,25 @@ export function hrefEstado(uf: Uf, cidadeId?: string) {
   return cidadeId ? `${base}?cidade=${encodeURIComponent(cidadeId)}` : base;
 }
 
-export function hrefCidade(cidadeId: string, { chegada }: { chegada?: Chegada } = {}) {
-  return `/cidade/${cidadeId}${chegada ? `?chegada=${chegada}` : ""}`;
+/** `de`: cidade de onde se veio pela estrada (com `chegada: "estrada"`). */
+export function hrefCidade(cidadeId: string, { chegada, de }: { chegada?: Chegada; de?: string } = {}) {
+  const params = new URLSearchParams();
+  if (chegada) params.set("chegada", chegada);
+  if (de) params.set("de", de);
+  const busca = params.toString();
+  return `/cidade/${cidadeId}${busca ? `?${busca}` : ""}`;
 }
 
 export const hrefRemoto = (deCidadeId?: string) => (deCidadeId ? `/remoto?de=${encodeURIComponent(deCidadeId)}` : "/remoto");
 
-/** `/cidade/[slug]?chegada=ponte`: personagem nasce na cabeceira da ponte. */
-export const ChegadaSchema = z.enum(["ponte"]).optional().catch(undefined);
+/**
+ * `/cidade/[slug]?chegada=ponte`: personagem nasce na cabeceira da ponte;
+ * `?chegada=estrada&de=<cidade>`: no fim da estrada que vem dessa cidade.
+ */
+export const ChegadaSchema = z.enum(["ponte", "estrada"]).optional().catch(undefined);
 export type Chegada = NonNullable<z.infer<typeof ChegadaSchema>>;
 
-/** `/remoto?de=<cidade>`: para onde o portal de volta leva. */
+/** `/remoto?de=<cidade>`: para onde o portal de volta leva; na cidade, de onde veio pela estrada. */
 export const DeSchema = CidadeParamSchema.optional().catch(undefined);
 
 /** `?vaga=<id>`: só vale para vaga do mundo aberto. */

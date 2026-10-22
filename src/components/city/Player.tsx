@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { Desenvolvedor, applyGait, type GaitState, type Rig } from "@/components/personagem/Desenvolvedor";
 import { useGameStore, type Viagem } from "@/stores/game";
+import type { Saida } from "@/lib/cidade/mundo";
 import { useMundo } from "./mundo";
 import { playerRuntime } from "./playerRuntime";
 import { arvoresDoMundo, dentroDeCopa } from "./Trees";
@@ -36,7 +37,16 @@ const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t 
 /** Onde o personagem aparece e para onde a câmera olha (yaw 0 = câmera ao sul, olhando para o norte). */
 export type Inicio = { x: number; z: number; yaw: number };
 
-export function Player({ inicio, aoAtravessar }: { inicio: Inicio; aoAtravessar?: () => void }) {
+export function Player({
+  inicio,
+  aoAtravessar,
+  aoSair,
+}: {
+  inicio: Inicio;
+  aoAtravessar?: () => void;
+  /** Chegou ao fim de uma estrada: segue para a cidade vizinha. */
+  aoSair?: (saida: Saida) => void;
+}) {
   const mundo = useMundo();
   const arvores = arvoresDoMundo(mundo);
   const atravessou = useRef(false);
@@ -282,6 +292,11 @@ export function Player({ inicio, aoAtravessar }: { inicio: Inicio; aoAtravessar?
     if (aoAtravessar && !atravessou.current && mundo.noPortal(s.x, s.z)) {
       atravessou.current = true;
       aoAtravessar();
+    }
+    const saida = aoSair && !atravessou.current ? mundo.saidaEm(s.x, s.z) : null;
+    if (saida) {
+      atravessou.current = true;
+      aoSair!(saida);
     }
   });
 
