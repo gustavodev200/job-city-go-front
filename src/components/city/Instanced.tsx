@@ -40,13 +40,13 @@ const GEOMETRIES: Record<Shape, THREE.BufferGeometry> = {
 };
 
 const SOLID_MATERIAL = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0 });
-const LIT_MATERIAL = new THREE.MeshStandardMaterial({
+export const LIT_MATERIAL = new THREE.MeshStandardMaterial({
   color: "#ffe6b0",
   emissive: "#ffc46a",
   emissiveIntensity: 0.75,
   roughness: 0.35,
 });
-const GLASS_MATERIAL = new THREE.MeshStandardMaterial({ color: "#9cc4d8", roughness: 0.18, metalness: 0.05 });
+export const GLASS_MATERIAL = new THREE.MeshStandardMaterial({ color: "#9cc4d8", roughness: 0.18, metalness: 0.05 });
 const DARK_GLASS_MATERIAL = new THREE.MeshStandardMaterial({ color: "#4d5b68", roughness: 0.3 });
 
 const DIM = new THREE.Color(0.6, 0.61, 0.65);

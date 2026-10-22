@@ -4,6 +4,7 @@ import { useFrame } from "@react-three/fiber";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useGameStore } from "@/stores/game";
+import { cicloRuntime } from "./ciclo";
 import { MODELO_COLORS } from "./cores";
 import { FACADES, FILLER_HOUSES, REMOTE_HOUSE, car } from "./facades";
 import { InstancedParts } from "./Instanced";
@@ -81,6 +82,7 @@ function ContactShadows() {
 /** Floating diamond above each job: color by work model, grey when closed; grows when nearby. */
 function Markers() {
   const ref = useRef<THREE.InstancedMesh>(null);
+  const material = useRef<THREE.MeshStandardMaterial>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const color = useMemo(() => new THREE.Color(), []);
 
@@ -97,6 +99,8 @@ function Markers() {
     const mesh = ref.current;
     if (!mesh) return;
     const t = clock.elapsedTime;
+    // Brighter at night so the diamonds stay readable in the dark.
+    if (material.current) material.current.emissiveIntensity = 0.2 + cicloRuntime.luzes * 0.6;
     const nearby = useGameStore.getState().nearbyVagaId;
     vagaSpots.forEach((spot, i) => {
       const s = spot.id === nearby ? 1.45 : 1;
@@ -112,7 +116,7 @@ function Markers() {
   return (
     <instancedMesh ref={ref} args={[undefined, undefined, vagaSpots.length]} frustumCulled={false}>
       <octahedronGeometry args={[0.7, 0]} />
-      <meshStandardMaterial color="#ffffff" emissive="#ffffff" emissiveIntensity={0.2} flatShading />
+      <meshStandardMaterial ref={material} color="#ffffff" emissive="#ffffff" emissiveIntensity={0.2} flatShading />
     </instancedMesh>
   );
 }

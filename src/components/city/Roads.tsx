@@ -95,6 +95,13 @@ const LAMP: Part[] = [
 const lampInstances: Instance[] = BLOCKS.flatMap(({ x, z }) =>
   [-1, 1].map((side) => ({ x: x + side * 6.5, y: 0.15, z: z + 6.5, rotY: side === -1 ? Math.PI : 0, lit: true })),
 );
+/** World position of each lamp bulb (night glow and street lights). */
+export const LAMP_HEADS = lampInstances.map(({ x, y, z, rotY = 0 }) => ({
+  x: x - 0.75 * Math.cos(rotY),
+  y: y + 4.0,
+  z: z + 0.75 * Math.sin(rotY),
+  groundY: y,
+}));
 
 // Benches and trash bins on the front sidewalk.
 const BENCH: Part[] = [
