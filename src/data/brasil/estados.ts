@@ -12,6 +12,16 @@ export type Regiao = "Norte" | "Nordeste" | "Centro-Oeste" | "Sudeste" | "Sul";
 /** Bioma predominante: define a cor do relevo do estado no mapa. */
 export type Bioma = "amazonia" | "cerrado" | "caatinga" | "mata-atlantica" | "pampa" | "pantanal";
 
+/** Cor da vegetação de cada bioma: relevo do mapa e chão da cidade. */
+export const CORES_BIOMA: Record<Bioma, string> = {
+  amazonia: "#3d8a47",
+  "mata-atlantica": "#62a85a",
+  pantanal: "#6fae95",
+  cerrado: "#b7a457",
+  caatinga: "#cfa66c",
+  pampa: "#a3c46d",
+};
+
 /** Fuso horário em relação a UTC (horas). −3 = horário de Brasília. */
 export type Fuso = -5 | -4 | -3;
 

@@ -6,6 +6,7 @@ import { FONTE_RAIO as FOUNTAIN_RADIUS, LOT_TOP, QUARTEIRAO as CITY_BLOCK_SIZE, 
 import type { Instance, Part } from "./facades";
 import { InstancedParts } from "./Instanced";
 import { useMundo } from "./mundo";
+import { corDaVegetacao } from "./Terrain";
 
 const ASPHALT_Y = 0.04;
 const DIRT = "#d9c39a";
@@ -23,9 +24,16 @@ const SIDEWALK: Part[] = [
   ]),
 ];
 const LOT_SIZE = CITY_BLOCK_SIZE - 1.6;
-const LOT: Part[] = [
-  { shape: "box", size: [LOT_SIZE, LOT_TOP, LOT_SIZE], pos: [0, LOT_TOP / 2, 0], color: "#a6cf8b" },
-];
+// Gramado do lote na cor do bioma (um array por cor: InstancedParts memoriza por array).
+const lotesPorCor = new Map<string, Part[]>();
+function gramadoDoLote(cor: string): Part[] {
+  let parts = lotesPorCor.get(cor);
+  if (!parts) {
+    parts = [{ shape: "box", size: [LOT_SIZE, LOT_TOP, LOT_SIZE], pos: [0, LOT_TOP / 2, 0], color: cor }];
+    lotesPorCor.set(cor, parts);
+  }
+  return parts;
+}
 // Paved parking lot with painted bays.
 const PARKING: Part[] = [
   { shape: "box", size: [LOT_SIZE, LOT_TOP, LOT_SIZE], pos: [0, LOT_TOP / 2, 0], color: "#8f949a" },
@@ -136,7 +144,7 @@ export function postesDoMundo(mundo: Mundo): Poste[] {
   return postes;
 }
 
-function Plaza({ praca }: { praca: Ponto }) {
+function Plaza({ praca, grama }: { praca: Ponto; grama: string }) {
   return (
     <group position={[praca.x, 0, praca.z]}>
       <mesh position={[0, 0.09, 0]} receiveShadow>
@@ -147,7 +155,7 @@ function Plaza({ praca }: { praca: Ponto }) {
         [-1, 1].map((sz) => (
           <mesh key={`${sx}${sz}`} position={[sx * 4.1, 0.2, sz * 4.1]} receiveShadow>
             <boxGeometry args={[3.6, 0.06, 3.6]} />
-            <meshStandardMaterial color="#9fcd82" />
+            <meshStandardMaterial color={grama} />
           </mesh>
         )),
       )}
@@ -248,6 +256,7 @@ function VillageRoads({ mundo, vila }: { mundo: Mundo; vila: Vila }) {
 
 function CityRoads({ mundo }: { mundo: Mundo }) {
   const r = useMemo(() => ruasDaCidade(mundo), [mundo]);
+  const grama = corDaVegetacao(mundo);
   const { urbano, ponte, praca, larguraRua } = mundo;
   return (
     <>
@@ -265,14 +274,14 @@ function CityRoads({ mundo }: { mundo: Mundo }) {
         <meshStandardMaterial color="#858a90" polygonOffset polygonOffsetFactor={-1} />
       </mesh>
       <InstancedParts parts={SIDEWALK} instances={r.sidewalk} />
-      <InstancedParts parts={LOT} instances={r.lot} />
+      <InstancedParts parts={gramadoDoLote(grama)} instances={r.lot} />
       <InstancedParts parts={PARKING} instances={r.parking} />
       <InstancedParts parts={DASH} instances={r.dash} shadows={false} />
       <InstancedParts parts={CROSSWALK} instances={r.crosswalk} shadows={false} />
       <InstancedParts parts={LAMP} instances={r.lamp} />
       <InstancedParts parts={BENCH} instances={r.bench} />
       <InstancedParts parts={BIN} instances={r.bin} />
-      {praca && <Plaza praca={praca} />}
+      {praca && <Plaza praca={praca} grama={grama} />}
     </>
   );
 }

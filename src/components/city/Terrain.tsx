@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import * as THREE from "three";
+import { CORES_BIOMA, estados } from "@/data/brasil/estados";
 import type { Mundo } from "@/lib/cidade/mundo";
 import { useMundo } from "./mundo";
 
@@ -10,11 +11,25 @@ const MARGEM = 110;
 const PASSO = 2;
 const ALTURA_COLINA_PADRAO = 3;
 
-const GRASS = new THREE.Color("#a3c98a");
-const GRASS_LIGHT = new THREE.Color("#b6d792");
-const GRASS_DARK = new THREE.Color("#8fbc76");
-const HIGHLAND = new THREE.Color("#8fbd78");
+/** Bairro Remoto avulso (nacional, sem bioma). */
+const GRAMA_PADRAO = "#a3c98a";
 const SAND = new THREE.Color("#ddcd9f");
+
+/** Vegetação da cidade = cor do bioma do estado no mapa do Brasil. */
+export function corDaVegetacao(mundo: Mundo) {
+  return mundo.uf ? CORES_BIOMA[estados[mundo.uf].bioma] : GRAMA_PADRAO;
+}
+
+/** Tons claros/escuros em volta da cor do bioma (manchas de grama e planalto). */
+function paleta(mundo: Mundo) {
+  const base = new THREE.Color(corDaVegetacao(mundo));
+  return {
+    grass: base,
+    light: base.clone().offsetHSL(0, 0, 0.05),
+    dark: base.clone().offsetHSL(0, 0, -0.04),
+    highland: base.clone().offsetHSL(0, -0.05, -0.03),
+  };
+}
 
 /** Cheap smooth noise in [-1, 1] for grass patches. */
 const patches = (x: number, z: number) =>
@@ -41,6 +56,7 @@ function useGroundGeometry(mundo: Mundo) {
     geometry.rotateX(-Math.PI / 2);
     geometry.translate((area.minX + area.maxX) / 2, 0, (area.minZ + area.maxZ) / 2);
     const alturaColina = mundo.colina?.altura ?? ALTURA_COLINA_PADRAO;
+    const { grass: GRASS, light: GRASS_LIGHT, dark: GRASS_DARK, highland: HIGHLAND } = paleta(mundo);
 
     const position = geometry.attributes.position;
     const colors = new Float32Array(position.count * 3);

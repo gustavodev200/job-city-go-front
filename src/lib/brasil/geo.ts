@@ -1,7 +1,7 @@
 // Leitura do geo.json gerado e funções puras sobre a grade do Brasil.
 // Formato: specs/001-mapa-brasil/contracts/geo-brasil.md.
 import geoJson from "@/data/brasil/geo.json";
-import { estados, UFS, type Bioma, type Uf } from "@/data/brasil/estados";
+import { CORES_BIOMA, estados, UFS, type Bioma, type Uf } from "@/data/brasil/estados";
 
 type Ponto = [number, number];
 
@@ -173,16 +173,9 @@ export function alturaDaCelula(col: number, lin: number) {
 
 // ── Malha do relevo (uma só geometria, cores por vértice) ───────────────
 /** Altura, na cena, de cada degrau do relevo. */
-export const ALTURA_DEGRAU = 0.35;
+export const ALTURA_DEGRAU = 0.15;
 
-export const CORES_BIOMA: Record<Bioma, string> = {
-  amazonia: "#3d8a47",
-  "mata-atlantica": "#62a85a",
-  pantanal: "#6fae95",
-  cerrado: "#b7a457",
-  caatinga: "#cfa66c",
-  pampa: "#a3c46d",
-};
+export { CORES_BIOMA };
 
 const ESCURECER_LATERAL = 0.72;
 
