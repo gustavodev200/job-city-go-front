@@ -3,7 +3,7 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { AREAS, walkHeight } from "@/data/mapa";
+import { AREAS, walkHeight, type Area } from "@/data/mapa";
 import { useGameStore, type Travel } from "@/stores/game";
 import { isBlocked, isInsideBuilding, nearestVagaId } from "./layout";
 import { playerRuntime } from "./playerRuntime";
@@ -35,7 +35,7 @@ type TravelAnim = { from: THREE.Vector2; to: THREE.Vector2; t: number; duration:
 
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
-export function Player() {
+export function Player({ areaInicial = "cidade" }: { areaInicial?: Area }) {
   const group = useRef<THREE.Group>(null);
   const rig = useRef<Rig>(null);
   const camera = useThree((state) => state.camera);
@@ -43,9 +43,9 @@ export function Player() {
 
   const keys = useRef(new Set<string>());
   const sim = useRef({
-    x: AREAS.cidade.x,
-    z: AREAS.cidade.z + 2,
-    y: walkHeight(AREAS.cidade.x, AREAS.cidade.z + 2),
+    x: AREAS[areaInicial].x,
+    z: AREAS[areaInicial].z + 2,
+    y: walkHeight(AREAS[areaInicial].x, AREAS[areaInicial].z + 2),
     vy: 0,
     grounded: true,
     facing: Math.PI,

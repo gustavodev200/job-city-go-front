@@ -1,8 +1,9 @@
 "use client";
 
 import { useFrame } from "@react-three/fiber";
-import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import * as THREE from "three";
+import { useReducedMotion } from "@/lib/movimento";
 import { selecionarHora, useRelogioReal, useTempoStore } from "@/stores/tempo";
 import { aproximar, calcularCeu, cicloRuntime, criarEstado } from "./ciclo";
 import { GLASS_MATERIAL, LIT_MATERIAL } from "./Instanced";
@@ -26,20 +27,6 @@ const WINDOW_DAY = 0.3;
 const WINDOW_NIGHT = 1.9;
 const GLASS_DAY = new THREE.Color("#9cc4d8");
 const GLASS_NIGHT = new THREE.Color("#33445a");
-
-const REDUCED_QUERY = "(prefers-reduced-motion: reduce)";
-
-function useReducedMotion() {
-  return useSyncExternalStore(
-    (onChange) => {
-      const media = window.matchMedia(REDUCED_QUERY);
-      media.addEventListener("change", onChange);
-      return () => media.removeEventListener("change", onChange);
-    },
-    () => window.matchMedia(REDUCED_QUERY).matches,
-    () => false,
-  );
-}
 
 // ── Sky dome shader ─────────────────────────────────────────────────────
 const NOISE_GLSL = /* glsl */ `
@@ -359,7 +346,28 @@ const STAR_MATERIAL = new THREE.ShaderMaterial({
  * (or the manual slider). Nothing is recreated on hour changes: only colors,
  * intensities and uniforms are eased.
  */
-export function DayNight({ shadows, pointLights }: { shadows: boolean; pointLights: boolean }) {
+type DayNightProps = {
+  shadows: boolean;
+  pointLights: boolean;
+  /** Ponto que o sol e a lua acompanham (padrão: personagem). */
+  foco?: () => { x: number; z: number };
+  /** Raio da cúpula do céu; a câmera precisa de `far` maior que isto. */
+  raioCeu?: number;
+  neblina?: [number, number];
+  /** Postes, janelas e vidros da cidade (desligado no mapa do Brasil). */
+  cidade?: boolean;
+};
+
+const focoPersonagem = () => playerRuntime.position;
+
+export function DayNight({
+  shadows,
+  pointLights,
+  foco = focoPersonagem,
+  raioCeu = SKY_RADIUS,
+  neblina = [85, 250],
+  cidade = true,
+}: DayNightProps) {
   useRelogioReal();
   const reduced = useReducedMotion();
   const dome = useRef<THREE.Group>(null);
@@ -411,11 +419,13 @@ export function DayNight({ shadows, pointLights }: { shadows: boolean; pointLigh
       hemi.current.intensity = current.ambiente;
     }
 
-    LIT_MATERIAL.emissiveIntensity = THREE.MathUtils.lerp(WINDOW_DAY, WINDOW_NIGHT, current.luzes);
-    GLASS_MATERIAL.color.lerpColors(GLASS_DAY, GLASS_NIGHT, current.noite);
+    if (cidade) {
+      LIT_MATERIAL.emissiveIntensity = THREE.MathUtils.lerp(WINDOW_DAY, WINDOW_NIGHT, current.luzes);
+      GLASS_MATERIAL.color.lerpColors(GLASS_DAY, GLASS_NIGHT, current.noite);
+    }
 
-    // Both lights follow the player; the box is snapped to texels to avoid shimmering.
-    const p = playerRuntime.position;
+    // Both lights follow the focus; the box is snapped to texels to avoid shimmering.
+    const p = foco();
     const x = Math.round(p.x / TEXEL) * TEXEL;
     const z = Math.round(p.z / TEXEL) * TEXEL;
     const s = sun.current;
@@ -442,8 +452,8 @@ export function DayNight({ shadows, pointLights }: { shadows: boolean; pointLigh
   return (
     <>
       <color ref={background} attach="background" args={["#dcedf3"]} />
-      <fog ref={fog} attach="fog" args={["#dcedf3", 85, 250]} />
-      <group ref={dome}>
+      <fog ref={fog} attach="fog" args={["#dcedf3", neblina[0], neblina[1]]} />
+      <group ref={dome} scale={raioCeu / SKY_RADIUS}>
         <mesh geometry={SKY_GEOMETRY} material={SKY_MATERIAL} renderOrder={-2} />
         <points geometry={STAR_GEOMETRY} material={STAR_MATERIAL} renderOrder={-1} frustumCulled={false} />
       </group>
@@ -465,7 +475,7 @@ export function DayNight({ shadows, pointLights }: { shadows: boolean; pointLigh
         shadow-radius={4}
       />
       <directionalLight ref={moon} color="#9fb8ff" intensity={0} />
-      <StreetLights pointLights={pointLights} />
+      {cidade && <StreetLights pointLights={pointLights} />}
     </>
   );
 }

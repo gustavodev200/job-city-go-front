@@ -1,10 +1,23 @@
 # Job City Go — Front
 
-Front-end do Job City Go: mapa 3D de uma cidade onde as vagas de emprego
-aparecem como prédios. Next.js (App Router) + React Three Fiber.
+Front-end do Job City Go: jogo de navegador em que as vagas de emprego
+aparecem num mapa — o Brasil em blocos, os estados e as cidades 3D com um
+prédio por vaga. Next.js (App Router) + React Three Fiber.
 
 O backend fica em outro projeto. Nesta etapa o front **não** chama nenhuma
-API — as vagas vêm de um mock local em `src/data/vagas.ts`.
+API — vagas, cidades e contagens vêm de dados fictícios locais em
+`src/data/`. Roadmap das features em [specs/README.md](specs/README.md).
+
+## Rotas
+
+| Rota | O que mostra |
+|---|---|
+| `/` | Mapa do Brasil: estados com vagas abertas (modos Luzes e Calor) |
+| `/estado/[uf]` | Nível Estado, ex.: `/estado/go` |
+| `/cidade/goiania-go` | Cidade 3D com o personagem |
+| `/remoto` | Bairro Remoto (vagas remotas), na mesma cena |
+| `/personagem` | Vitrine do personagem |
+| `/?semWebgl=1` | Força o mapa plano (SVG), usado também sem WebGL |
 
 ## Stack
 
@@ -12,7 +25,8 @@ API — as vagas vêm de um mock local em `src/data/vagas.ts`.
 - React 19
 - Tailwind CSS 4 (via `@tailwindcss/postcss`)
 - three, @react-three/fiber, @react-three/drei
-- zustand
+- zustand, zod
+- Vitest + Playwright
 
 ## Como rodar
 
@@ -27,10 +41,16 @@ npm run dev                  # http://localhost:3000
 Outros scripts:
 
 ```bash
-npm run build   # build de produção (webpack)
-npm run start   # serve o build
-npm run lint    # ESLint
+npm run build      # build de produção (webpack)
+npm run start      # serve o build
+npm run lint       # ESLint
+npm run test       # Vitest (lógica pura: geo, agregados, vagas, rotas, stores)
+npm run test:e2e   # Playwright (sobe build + start; 1ª vez: npx playwright install chromium)
 ```
+
+Dados geográficos do mapa do Brasil (só quando o script ou a lista de
+cidades mudar): `node scripts/brasil/gerar-geo.mjs` — ver
+[scripts/brasil/README.md](scripts/brasil/README.md).
 
 ## Variáveis de ambiente
 
@@ -45,16 +65,19 @@ coloque segredo nelas.
 
 ```
 src/
-  app/page.tsx                 # tela cheia: cena 3D (next/dynamic, ssr: false) + HUD
-  components/city/
-    CityScene.tsx              # Canvas do R3F, luzes e chão
-    Buildings.tsx              # prédios por categoria (InstancedMesh) — a implementar
-    Roads.tsx                  # ruas em grade e calçadas — a implementar
-    Trees.tsx                  # árvores instanciadas — a implementar
-    Player.tsx                 # personagem e movimento — a implementar
-    Hud.tsx                    # vaga mais próxima e legenda
-  stores/game.ts               # Zustand: posição do jogador, vaga selecionada
-  data/vagas.ts                # vagas fictícias (mock)
+  app/(mapa)/layout.tsx        # canvas do Brasil (sobrevive à navegação Brasil ↔ Estado)
+  app/(mapa)/page.tsx          # nível Brasil
+  app/(mapa)/estado/[uf]/      # nível Estado (UF validada com Zod)
+  app/cidade/goiania-go/       # cidade 3D
+  app/remoto/                  # Bairro Remoto
+  components/brasil/           # mapa do Brasil: relevo, torres, câmera, HUD, fallback SVG
+  components/city/             # cidade 3D: prédios, ruas, personagem, dia/noite, HUD
+  data/brasil/                 # estados, geo.json e cidades.ts (gerados), vagas nacionais
+  data/vagas.ts                # vagas escritas à mão da cidade atual
+  lib/brasil/                  # geo, agregados, rotas, navegação (funções puras)
+  stores/                      # zustand: jogo, tempo, outdoors, mapa, perfil
+scripts/brasil/                # gerador do geo.json e da lista de cidades
+tests/unit, tests/e2e          # Vitest e Playwright
 ```
 
 ---

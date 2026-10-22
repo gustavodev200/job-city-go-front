@@ -1,8 +1,9 @@
 "use client";
 
 import { Canvas } from "@react-three/fiber";
-import { useSyncExternalStore } from "react";
 import * as THREE from "three";
+import type { Area } from "@/data/mapa";
+import { useIsNarrow } from "@/lib/movimento";
 import { Buildings } from "./Buildings";
 import { DayNight } from "./DayNight";
 import { Outdoors } from "./Outdoors";
@@ -11,25 +12,7 @@ import { Roads } from "./Roads";
 import { Terrain } from "./Terrain";
 import { Trees } from "./Trees";
 
-/** Narrow screens and touch-first devices (phones, also in landscape). */
-const NARROW_QUERY = "(max-width: 768px), (pointer: coarse)";
-
-function subscribeNarrow(onChange: () => void) {
-  const media = window.matchMedia(NARROW_QUERY);
-  media.addEventListener("change", onChange);
-  return () => media.removeEventListener("change", onChange);
-}
-
-/** Celulares e telas estreitas desligam sombras (desempenho). */
-function useIsNarrow() {
-  return useSyncExternalStore(
-    subscribeNarrow,
-    () => window.matchMedia(NARROW_QUERY).matches,
-    () => false,
-  );
-}
-
-export default function CityScene() {
+export default function CityScene({ areaInicial }: { areaInicial?: Area }) {
   const narrow = useIsNarrow();
   return (
     <Canvas
@@ -46,7 +29,7 @@ export default function CityScene() {
       <Buildings />
       <Trees />
       <Outdoors lights={!narrow} />
-      <Player />
+      <Player areaInicial={areaInicial} />
     </Canvas>
   );
 }

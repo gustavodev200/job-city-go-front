@@ -12,7 +12,7 @@ const ControleHora = dynamic(() => import("@/components/city/ControleHora"), {
   ssr: false,
 });
 
-export default function Home() {
+export default function CidadeGoiania() {
   return (
     <main className="relative h-dvh w-full overflow-hidden">
       <CityScene />
