@@ -278,6 +278,10 @@ export function gerarVagasBrasil(semente = SEMENTE): VagaNacional[] {
   // Uma remota patrocinada para demonstrar o destaque (a spec 009 cria os de verdade).
   const patrocinada = lista.find((v) => v.modelo === "remoto" && v.status === "aberta" && v.id.startsWith("vn-"));
   if (patrocinada) patrocinada.destaque = { ate: "2099-12-31" };
+  // E uma presencial na maior cidade, para a torre patrocinada aparecer no nível Cidade.
+  const maior = [...cidades].sort((x, y) => pesoCidade(y) - pesoCidade(x))[0];
+  const presencial = lista.find((v) => v.cidadeId === maior.id && v.modelo === "presencial" && v.status === "aberta");
+  if (presencial) presencial.destaque = { ate: "2099-12-31" };
   return completarCamposBusca(lista, semente + 1);
 }
 

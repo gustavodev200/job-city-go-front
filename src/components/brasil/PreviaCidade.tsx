@@ -1,65 +1,79 @@
 "use client";
 
-import { useFrame, useThree } from "@react-three/fiber";
-import { useMemo, useRef, useState } from "react";
-import { FACADES } from "@/components/city/facades";
+import { useMemo } from "react";
+import { BrilhoPatrocinado } from "@/components/city/BrilhoPatrocinado";
+import { FACADES, TORRE_PATROCINADA } from "@/components/city/facades";
 import { InstancedParts } from "@/components/city/Instanced";
 import type { Instance } from "@/components/city/facades";
+import type { Uf } from "@/data/brasil/estados";
 import type { Cidade } from "@/data/brasil/tipos";
 import { vagasBrasil } from "@/data/brasil/vagas";
 import { ORDEM_CATEGORIAS, type Categoria } from "@/data/vagas";
 import { celulaDoPonto, topoDaCelula } from "@/lib/brasil/geo";
 import { previaDaCidade, type Previa } from "@/lib/brasil/previa";
+import { useMapaStore } from "@/stores/mapa";
 
 /** Lote da cidade (±6,2) → ~0,55 unidade do mapa. */
 const ESCALA = 0.045;
-/** A prévia aparece com a câmera a menos disto da cidade (histerese evita piscar na borda). */
-const DISTANCIA_PREVIA = 30;
-const HISTERESE = 2;
-
 export function usePrevia(cidade: Cidade | undefined): Previa | null {
   return useMemo(() => (cidade ? previaDaCidade(cidade, vagasBrasil) : null), [cidade]);
 }
 
-/** Câmera perto o bastante da cidade em foco para trocar o aglomerado pela prévia. */
-export function usePreviaVisivel(cidade: Cidade | undefined) {
-  const camera = useThree((s) => s.camera);
-  const [visivel, setVisivel] = useState(false);
-  const atual = useRef(false);
-  useFrame(() => {
-    let proximo = false;
-    if (cidade) {
-      const d = Math.hypot(camera.position.x - cidade.x, camera.position.y, camera.position.z - cidade.z);
-      proximo = d < DISTANCIA_PREVIA + (atual.current ? HISTERESE : -HISTERESE);
-    }
-    if (proximo !== atual.current) {
-      atual.current = proximo;
-      setVisivel(proximo);
-    }
-  });
-  return visivel;
-}
+/** Halo do patrocinado na escala do mapa. */
+const HALO_RAIO = 0.9;
+const FEIXE_ALTURA = 7;
+/** Arrasto maior que isto (px) é câmera, não clique. */
+const ARRASTO_MAXIMO = 6;
 
-/** Construções reais das vagas da cidade em foco: luz acesa = aberta, apagada = encerrada (US3). */
-export function PreviaCidade({ cidade, previa }: { cidade: Cidade; previa: Previa }) {
-  const porCategoria = useMemo(() => {
-    const cel = celulaDoPonto(cidade.x, cidade.z);
-    const base = cel ? topoDaCelula(cel.col, cel.lin) : 0;
+/**
+ * Construções reais das vagas de cada cidade, já organizadas em volta do centro: luz acesa =
+ * aberta, apagada = encerrada (US3); patrocinada = torre dourada com halo. Clicar numa cidade
+ * da UF aberta foca a cidade; fora dela o clique segue para o relevo (entra na UF).
+ */
+export function PreviasDasCidades({ cidades, uf }: { cidades: readonly Cidade[]; uf: Uf | null }) {
+  const focarCidade = useMapaStore((s) => s.focarCidade);
+  const { porCategoria, torres } = useMemo(() => {
     const grupos = new Map<Categoria, Instance[]>();
-    for (const c of previa.construcoes) {
-      const lista = grupos.get(c.categoria) ?? [];
-      // Todas de frente para o sul: a câmera do mapa olha do sul para o norte.
-      lista.push({ x: c.x, y: base, z: c.z, scale: ESCALA, lit: c.aberta, dim: !c.aberta });
-      grupos.set(c.categoria, lista);
+    const torres: Instance[] = [];
+    for (const cidade of cidades) {
+      const cel = celulaDoPonto(cidade.x, cidade.z);
+      const base = cel ? topoDaCelula(cel.col, cel.lin) : 0;
+      for (const c of previaDaCidade(cidade, vagasBrasil).construcoes) {
+        // Todas de frente para o sul: a câmera do mapa olha do sul para o norte.
+        const inst = { x: c.x, y: base, z: c.z, scale: ESCALA, lit: c.aberta, dim: !c.aberta };
+        if (c.destaque) {
+          torres.push(inst);
+          continue;
+        }
+        const lista = grupos.get(c.categoria) ?? [];
+        lista.push(inst);
+        grupos.set(c.categoria, lista);
+      }
     }
-    return ORDEM_CATEGORIAS.filter((cat) => grupos.has(cat)).map((cat) => [cat, grupos.get(cat)!] as const);
-  }, [cidade, previa]);
+    return {
+      porCategoria: ORDEM_CATEGORIAS.filter((cat) => grupos.has(cat)).map((cat) => [cat, grupos.get(cat)!] as const),
+      torres,
+    };
+  }, [cidades]);
+
+  const maisPerto = (x: number, z: number) =>
+    cidades.reduce((m, c) => (Math.hypot(c.x - x, c.z - z) < Math.hypot(m.x - x, m.z - z) ? c : m));
 
   return (
-    <>
+    <group
+      onClick={(e) => {
+        if (e.delta > ARRASTO_MAXIMO || !uf) return;
+        const cidade = maisPerto(e.point.x, e.point.z);
+        if (cidade.uf !== uf) return;
+        e.stopPropagation();
+        focarCidade(cidade.id);
+      }}
+    >
       {porCategoria.map(([cat, instancias]) => (
-        <InstancedParts key={`${cidade.id}-${cat}`} parts={FACADES[cat].parts} instances={instancias} shadows={false} />
+        <InstancedParts key={cat} parts={FACADES[cat].parts} instances={instancias} shadows={false} />
       ))}
-    </>
+      <InstancedParts parts={TORRE_PATROCINADA.parts} instances={torres} shadows={false} />
+      <BrilhoPatrocinado pontos={torres} raio={HALO_RAIO} altura={FEIXE_ALTURA} />
+    </group>
   );
 }

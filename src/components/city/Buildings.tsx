@@ -6,18 +6,22 @@ import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useIdsNoFiltro } from "@/components/busca/usarBusca";
 import { ORDEM_CATEGORIAS, type Categoria } from "@/data/vagas";
-import { N_CORES_CARRO, type Lote, type Mundo, type Rect, type VagaSpot } from "@/lib/cidade/mundo";
+import { N_CORES_CARRO, destaqueAtivo, facadeDaVaga, type Lote, type Mundo, type Rect, type VagaSpot } from "@/lib/cidade/mundo";
 import { useGameStore } from "@/stores/game";
+import { BrilhoPatrocinado } from "./BrilhoPatrocinado";
 import { cicloRuntime } from "./ciclo";
 import { MODELO_COLORS } from "./cores";
-import { FACADES, FILLER_HOUSES, PLACA_ENCERRADA, REMOTE_HOUSE, car, type Instance } from "./facades";
+import { FACADES, FILLER_HOUSES, PLACA_ENCERRADA, REMOTE_HOUSE, TORRE_PATROCINADA, car, type Instance } from "./facades";
 import { InstancedParts } from "./Instanced";
 import { useMundo } from "./mundo";
 
 const CLOSED_COLOR = "#8a8f96";
-/** Vaga patrocinada (FR-011): marcador dourado, 1,5× maior, sempre com a etiqueta. */
+/** Vaga patrocinada (FR-011): torre própria, marcador dourado 2,4× maior, feixe de luz e etiqueta. */
 const SPONSORED_COLOR = "#f2c230";
-const SPONSORED_SCALE = 1.5;
+const SPONSORED_SCALE = 2.4;
+/** Feixe do patrocinado: visível de qualquer ponto da cidade. */
+const FEIXE_ALTURA = 160;
+const HALO_RAIO = 14;
 const CAR_COLORS = ["#e8743b", "#5aa0c8", "#f2efe6"] as const;
 
 const CAR_PARTS = CAR_COLORS.slice(0, N_CORES_CARRO).map(car);
@@ -37,7 +41,9 @@ function construcoes(mundo: Mundo, noFiltro: ReadonlySet<string>) {
     lit: l.vaga.status === "aberta" && noFiltro.has(l.vaga.id),
     dim: l.vaga.status === "encerrada" || !noFiltro.has(l.vaga.id),
   });
-  const daCidade = mundo.lotes.filter((l) => l.vaga.modelo !== "remoto");
+  // Patrocinadas viram a torre dourada (fora das listas por categoria).
+  const comuns = mundo.lotes.filter((l) => !destaqueAtivo(l.vaga));
+  const daCidade = comuns.filter((l) => l.vaga.modelo !== "remoto");
   const porCategoria = (lista: Lote[]) =>
     Object.fromEntries(
       ORDEM_CATEGORIAS.map((cat) => [
@@ -48,7 +54,8 @@ function construcoes(mundo: Mundo, noFiltro: ReadonlySet<string>) {
   return {
     porCategoria: porCategoria(daCidade),
     hibridas: porCategoria(daCidade.filter((l) => l.vaga.modelo === "hibrido" && noFiltro.has(l.vaga.id))),
-    remotas: mundo.lotes.filter((l) => l.vaga.modelo === "remoto").map(instancia),
+    remotas: comuns.filter((l) => l.vaga.modelo === "remoto").map(instancia),
+    torres: mundo.lotes.filter((l) => destaqueAtivo(l.vaga)).map(instancia),
     casas: FILLER_HOUSES.map((_, v) =>
       mundo.casas.filter((c) => c.variante === v).map((c) => ({ x: c.x, y: mundo.alturaDoPasso(c.x, c.z), z: c.z })),
     ),
@@ -59,7 +66,7 @@ function construcoes(mundo: Mundo, noFiltro: ReadonlySet<string>) {
     encerradas: mundo.lotes
       .filter((l) => l.vaga.status === "encerrada")
       .map((l) => {
-        const fundo = l.vaga.modelo === "remoto" ? REMOTE_HOUSE.footprint[1] : FACADES[l.vaga.categoria].footprint[1];
+        const fundo = facadeDaVaga(l.vaga).footprint[1];
         return { x: l.x - 3, y: l.y, z: l.z + Math.min(fundo / 2 + 0.6, 6) };
       }),
   };
@@ -168,9 +175,9 @@ function EtiquetasPatrocinado({ vagaSpots }: { vagaSpots: readonly VagaSpot[] })
       {vagaSpots
         .filter((s) => s.destaque)
         .map((s) => (
-          <Html key={s.id} position={[s.x, s.y + 2.2, s.z]} center zIndexRange={[4, 0]} style={{ pointerEvents: "none" }}>
-            <span className="block rounded-full bg-[#f2c230] px-2 py-0.5 text-[11px] font-bold whitespace-nowrap text-[#3b2a1a] shadow">
-              Patrocinado
+          <Html key={s.id} position={[s.x, s.y + 4, s.z]} center zIndexRange={[4, 0]} style={{ pointerEvents: "none" }}>
+            <span className="block rounded-full border-2 border-[#fff3c4] bg-gradient-to-b from-[#ffd84a] to-[#e0a51c] px-3 py-1 text-sm font-extrabold tracking-wide whitespace-nowrap text-[#3b2a1a] shadow-[0_0_18px_6px_rgba(255,201,58,0.75)]">
+              ★ Patrocinado
             </span>
           </Html>
         ))}
@@ -226,6 +233,12 @@ export function Buildings() {
         <InstancedParts key={`carro-${i}`} parts={parts} instances={c.carros[i]} />
       ))}
       <InstancedParts parts={REMOTE_HOUSE.parts} instances={c.remotas} />
+      <InstancedParts parts={TORRE_PATROCINADA.parts} instances={c.torres} />
+      <BrilhoPatrocinado
+        pontos={visiveis.filter((s) => s.destaque).map((s) => ({ x: s.x, y: s.baseY, z: s.z }))}
+        raio={HALO_RAIO}
+        altura={FEIXE_ALTURA}
+      />
       <InstancedParts parts={PLACA_ENCERRADA} instances={c.encerradas} shadows={false} />
       <ContactShadows colliders={mundo.colisores} />
       <Markers key={visiveis.length} vagaSpots={visiveis} />

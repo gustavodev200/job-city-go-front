@@ -1,6 +1,6 @@
 // Mundo do nível Cidade gerado a partir das vagas (research R1–R3, data-model). Puro e
 // determinístico: mesma entrada, mesmo mundo. Unidades da cena (~1 = 1 metro).
-import { FACADES, FILLER_HOUSES, REMOTE_HOUSE } from "@/components/city/facades";
+import { FACADES, FILLER_HOUSES, REMOTE_HOUSE, TORRE_PATROCINADA } from "@/components/city/facades";
 import { cidades } from "@/data/brasil/cidades";
 import type { Uf } from "@/data/brasil/estados";
 import type { Cidade } from "@/data/brasil/tipos";
@@ -179,6 +179,12 @@ const ret = (x: number, z: number, [w, d]: readonly [number, number], base: numb
 const hojeIso = () => new Date().toISOString().slice(0, 10);
 export const destaqueAtivo = (v: VagaNacional, hoje = hojeIso()) => !!v.destaque && v.destaque.ate >= hoje;
 
+/** Construção do lote: patrocinada vira a torre dourada; remota, casa da vila; senão a fachada da categoria. */
+export function facadeDaVaga(v: VagaNacional) {
+  if (destaqueAtivo(v)) return TORRE_PATROCINADA;
+  return v.modelo === "remoto" ? REMOTE_HOUSE : FACADES[v.categoria];
+}
+
 // ── Geração ─────────────────────────────────────────────────────────────
 export function gerarMundo(entrada: EntradaMundo): Mundo {
   return entrada.tipo === "cidade" ? gerarCidade(entrada.cidade, entrada.vagas) : gerarRemoto(entrada.vagas);
@@ -219,14 +225,14 @@ function gerarCidade(cidade: Cidade, todas: readonly VagaNacional[]): Mundo {
 
   const colisores: Rect[] = [
     ...lotes.map((l) => {
-      const f = FACADES[categoriaDe(l.vaga)];
+      const f = facadeDaVaga(l.vaga);
       return ret(l.x, l.z, f.footprint, LOT_TOP, f.markerY - 1.5);
     }),
     ...casas.map((c) => ret(c.x, c.z, FILLER_HOUSES[0].footprint, LOT_TOP, 5)),
     ...carros.map((c) => ret(c.x, c.z, [2.1, 4.3], LOT_TOP, 1.6)),
   ];
   const spots = lotes.map((l): VagaSpot => {
-    const f = FACADES[categoriaDe(l.vaga)];
+    const f = facadeDaVaga(l.vaga);
     return spot(l, f.markerY, f.footprint);
   });
   // O Bairro Remoto fica do outro lado da ponte, na mesma cena.
@@ -271,17 +277,27 @@ function gerarCidade(cidade: Cidade, todas: readonly VagaNacional[]): Mundo {
   });
 }
 
-/** Planalto a leste do rio com uma casa por vaga remota (4 por quarteirão). */
+/**
+ * Planalto a leste do rio com uma casa por vaga remota (4 por quarteirão). Patrocinada
+ * ocupa um quarteirão inteiro com a torre, nos primeiros quarteirões (perto da ponte).
+ */
 function gerarVila(rioX: number, vagas: readonly VagaNacional[]) {
   const colina = { inicio: rioX + COLINA.inicioRio, fim: rioX + COLINA.fimRio, altura: COLINA.altura };
+  const patrocinadas = vagas.filter((v) => destaqueAtivo(v));
+  const comuns = vagas.filter((v) => !destaqueAtivo(v));
   // Primeira coluna da vila em fim da colina + 12 (x = 120 com o rio em 86, como a vila original).
   const { centrosX, centrosZ, ordem } = prefixoDaRede(
     { x: colina.fim + 12, z: 10 },
-    Math.max(4, Math.ceil(vagas.length / CASAS_REMOTAS.length)),
+    Math.max(4, patrocinadas.length + Math.ceil(comuns.length / CASAS_REMOTAS.length)),
     colina.fim + 12,
   );
-  const posicoes = ordem.flatMap((b) => CASAS_REMOTAS.map(([dx, dz]) => ({ x: b.x + dx, z: b.z + dz })));
-  const lotes: Lote[] = vagas.map((vaga, i) => ({ vaga, x: posicoes[i].x, z: posicoes[i].z, y: colina.altura }));
+  const posicoes = ordem
+    .slice(patrocinadas.length)
+    .flatMap((b) => CASAS_REMOTAS.map(([dx, dz]) => ({ x: b.x + dx, z: b.z + dz })));
+  const lotes: Lote[] = [
+    ...patrocinadas.map((vaga, i) => ({ vaga, x: ordem[i].x, z: ordem[i].z, y: colina.altura })),
+    ...comuns.map((vaga, i) => ({ vaga, x: posicoes[i].x, z: posicoes[i].z, y: colina.altura })),
+  ];
   const vila: Vila = {
     centrosX,
     centrosZ,
@@ -301,8 +317,14 @@ function gerarVila(rioX: number, vagas: readonly VagaNacional[]) {
     lotes,
     // Sem origem: chega na primeira rua da vila (o (130, 2) da vila original).
     chegada: { x: centrosX[0] + PASSO / 2, z: 2 },
-    spots: lotes.map((l) => spot(l, REMOTE_HOUSE.markerY, REMOTE_HOUSE.footprint)),
-    colisores: lotes.map((l) => ret(l.x, l.z, REMOTE_HOUSE.footprint, l.y, 5)),
+    spots: lotes.map((l) => {
+      const f = facadeDaVaga(l.vaga);
+      return spot(l, f.markerY, f.footprint);
+    }),
+    colisores: lotes.map((l) => {
+      const f = facadeDaVaga(l.vaga);
+      return ret(l.x, l.z, f.footprint, l.y, f === REMOTE_HOUSE ? 5 : f.markerY - 1.5);
+    }),
   };
 }
 
@@ -346,8 +368,6 @@ function gerarRemoto(todas: readonly VagaNacional[]): Mundo {
     colisores: bairro.colisores,
   });
 }
-
-const categoriaDe = (v: VagaNacional) => (v.modelo === "remoto" ? "bairro" : v.categoria);
 
 function spot(l: Lote, markerY: number, footprint: readonly [number, number]): VagaSpot {
   return {

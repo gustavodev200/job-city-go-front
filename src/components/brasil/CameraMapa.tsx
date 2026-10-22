@@ -140,7 +140,7 @@ export function CameraMapa() {
       makeDefault
       enableDamping
       screenSpacePanning={false}
-      minPolarAngle={25 * GRAU}
+      minPolarAngle={0}
       maxPolarAngle={65 * GRAU}
       minAzimuthAngle={-30 * GRAU}
       maxAzimuthAngle={30 * GRAU}

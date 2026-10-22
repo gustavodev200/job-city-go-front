@@ -482,3 +482,53 @@ export function car(color: string): Part[] {
     ),
   ];
 }
+
+// ── Sponsored tower (spec 009) ───────────────────────────────────────────
+const GOLD = "#e3b02a";
+const GOLD_DARK = "#a8791a";
+const GRANITE = "#3a3631";
+const TOWER_W = 8;
+const TOWER_BASE = 4.2;
+const TOWER_TOP = 32;
+const TOWER_FLOORS = Array.from({ length: 12 }, (_, i) => TOWER_BASE + 1.3 + i * 2.3);
+
+/**
+ * Sponsored job: gold-and-glass skyscraper, by far the tallest building in any city
+ * (more than twice the office tower). Same footprint class as a regular lot.
+ */
+export const TORRE_PATROCINADA: Omit<Facade, "badge"> = {
+  footprint: [9.8, 9.8],
+  markerY: 50,
+  parts: [
+    // Podium with a gold sign over the entrance.
+    box([9.8, TOWER_BASE, 9.8], [0, TOWER_BASE / 2, 0], GRANITE),
+    box([10.2, 0.4, 10.2], [0, TOWER_BASE, 0], GOLD),
+    glass([5, 2.6, 0.1], [0, 1.4, 4.92]),
+    box([6.6, 0.9, 0.12], [0, 3.3, 4.96], GOLD_DARK),
+    { shape: "plane", size: [6.2, 0.78, 1], pos: [0, 3.3, 5.03], color: "#ffffff", label: { text: "★ DESTAQUE", background: "#b8860b" } },
+    // Shaft: glass floors between gold bands, gold corner pilasters.
+    box([TOWER_W - 0.4, TOWER_TOP - TOWER_BASE, TOWER_W - 0.4], [0, (TOWER_TOP + TOWER_BASE) / 2, 0], "#2f3a44"),
+    ...TOWER_FLOORS.flatMap((y) => [
+      glass([TOWER_W - 1.2, 1.6, 0.1], [0, y, TOWER_W / 2 - 0.15]),
+      glass([TOWER_W - 1.2, 1.6, 0.1], [0, y, -TOWER_W / 2 + 0.15]),
+      glass([0.1, 1.6, TOWER_W - 1.2], [TOWER_W / 2 - 0.15, y, 0]),
+      glass([0.1, 1.6, TOWER_W - 1.2], [-TOWER_W / 2 + 0.15, y, 0]),
+      box([TOWER_W + 0.1, 0.35, TOWER_W + 0.1], [0, y + 1.0, 0], GOLD),
+    ]),
+    ...[-1, 1].flatMap((sx) =>
+      [-1, 1].map((sz) =>
+        box([0.7, TOWER_TOP - TOWER_BASE, 0.7], [(sx * TOWER_W) / 2, (TOWER_TOP + TOWER_BASE) / 2, (sz * TOWER_W) / 2], GOLD),
+      ),
+    ),
+    // Setback, gold crown and lit spire.
+    box([TOWER_W + 0.6, 0.6, TOWER_W + 0.6], [0, TOWER_TOP, 0], GOLD),
+    box([5.6, 4, 5.6], [0, TOWER_TOP + 2.3, 0], "#2f3a44"),
+    glass([4.6, 2.4, 0.1], [0, TOWER_TOP + 2.3, 2.82]),
+    glass([4.6, 2.4, 0.1], [0, TOWER_TOP + 2.3, -2.82]),
+    glass([0.1, 2.4, 4.6], [2.82, TOWER_TOP + 2.3, 0]),
+    glass([0.1, 2.4, 4.6], [-2.82, TOWER_TOP + 2.3, 0]),
+    { shape: "pyramid", size: [5.8, 5, 5.8], pos: [0, TOWER_TOP + 6.8, 0], color: GOLD },
+    cyl([0.35, 7, 0.35], [0, TOWER_TOP + 12, 0], GOLD_DARK),
+    { shape: "sphere", size: [1.1, 1.1, 1.1], pos: [0, TOWER_TOP + 15.6, 0], color: "", glow: true },
+  ],
+};

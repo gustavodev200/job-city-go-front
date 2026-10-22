@@ -1,22 +1,22 @@
 "use client";
 
 import { Canvas } from "@react-three/fiber";
-import { useMemo } from "react";
 import * as THREE from "three";
 import { DayNight } from "@/components/city/DayNight";
-import { cidadesDoEstado } from "@/lib/brasil/agregados";
+import { cidades } from "@/data/brasil/cidades";
 import { useUfDaRota } from "@/lib/brasil/navegacao";
 import { cidadePorId } from "@/lib/brasil/rotas";
 import { useIsNarrow } from "@/lib/movimento";
 import { useMapaStore } from "@/stores/mapa";
-import { Aglomerados } from "./Aglomerados";
+import { ArvoresMapa } from "./ArvoresMapa";
 import { AnelRaio } from "./AnelRaio";
 import { Bordas } from "./Bordas";
 import { CameraMapa } from "./CameraMapa";
+import { Estradas } from "./Estradas";
 import { IlhaRemota } from "./IlhaRemota";
 import { MarcadorVoceAqui } from "./MarcadorVoceAqui";
 import { Mar } from "./Mar";
-import { PreviaCidade, usePrevia, usePreviaVisivel } from "./PreviaCidade";
+import { PreviasDasCidades, usePrevia } from "./PreviaCidade";
 import { Relevo } from "./Relevo";
 import { RotulosCidade } from "./RotulosCidade";
 import { RotulosUf } from "./RotulosUf";
@@ -24,36 +24,22 @@ import { mapaRuntime } from "./runtime";
 
 const focoDaCamera = () => mapaRuntime.alvo;
 
-/** Raio extra em volta da prévia em que aglomerados vizinhos somem (região metropolitana). */
-const FOLGA_PREVIA = 0.4;
-
-/** Cidades da UF aberta (nível Estado). */
-function CamadaEstado() {
+/** Toda cidade do país mostra suas construções reais; no nível Estado entram anel e rótulos. */
+function CamadaCidades() {
   const uf = useUfDaRota();
   const cidadeEmFoco = useMapaStore((s) => s.cidadeEmFoco);
   const cidade = cidadeEmFoco ? cidadePorId.get(cidadeEmFoco) : undefined;
-  const daUf = cidade && cidade.uf === uf ? cidade : undefined;
-  const previa = usePrevia(daUf);
-  const visivel = usePreviaVisivel(daUf);
+  const previa = usePrevia(cidade && cidade.uf === uf ? cidade : undefined);
 
-  // Só a cidade em foco mostra prédios (FR-005); vizinhas sob a prévia somem.
-  const ocultar = useMemo(() => {
-    if (!visivel || !daUf || !previa || !uf) return undefined;
-    const raio = previa.raio + FOLGA_PREVIA;
-    return new Set(
-      cidadesDoEstado(uf)
-        .filter((c) => Math.hypot(c.x - daUf.x, c.z - daUf.z) < raio)
-        .map((c) => c.id),
-    );
-  }, [visivel, daUf, previa, uf]);
-
-  if (!uf) return null;
   return (
     <>
-      <Aglomerados uf={uf} ocultar={ocultar} />
-      <AnelRaio />
-      {visivel && daUf && previa && <PreviaCidade cidade={daUf} previa={previa} />}
-      <RotulosCidade uf={uf} excedente={visivel ? (previa?.excedente ?? 0) : 0} />
+      <PreviasDasCidades cidades={cidades} uf={uf} />
+      {uf && (
+        <>
+          <AnelRaio />
+          <RotulosCidade uf={uf} excedente={previa?.excedente ?? 0} />
+        </>
+      )}
     </>
   );
 }
@@ -77,7 +63,9 @@ export default function BrasilCena({ onContextoPerdido }: { onContextoPerdido: (
       <Bordas />
       <IlhaRemota />
       <RotulosUf />
-      <CamadaEstado />
+      <Estradas />
+      <ArvoresMapa />
+      <CamadaCidades />
       <MarcadorVoceAqui />
       <CameraMapa />
     </Canvas>

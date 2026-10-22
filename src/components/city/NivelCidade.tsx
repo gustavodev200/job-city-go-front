@@ -8,11 +8,10 @@ import { ChipFiltros } from "@/components/busca/ChipFiltros";
 import { PainelVagas } from "@/components/busca/PainelVagas";
 import { SincronizarFiltros } from "@/components/busca/usarBusca";
 import { ChegadaSchema, DeSchema, cidadePorId, hrefCidade, vagaSchema } from "@/lib/brasil/rotas";
-import { mundoDaCidade, mundoRemoto } from "@/lib/cidade/mundo";
+import { facadeDaVaga, mundoDaCidade, mundoRemoto } from "@/lib/cidade/mundo";
 import { useReidratar } from "@/stores/armazenamento";
 import { useGameStore } from "@/stores/game";
 import { usePerfilStore } from "@/stores/perfil";
-import { FACADES, REMOTE_HOUSE } from "./facades";
 import { Hud } from "./Hud";
 import { MundoProvider } from "./mundo";
 import { OutdoorOverlay } from "./OutdoorOverlay";
@@ -46,7 +45,7 @@ export function NivelCidade({ mundoId }: { mundoId: string }) {
     const lote = vagaId ? mundo.lotes.find((l) => l.vaga.id === vagaId) : undefined;
     if (lote) {
       // Na calçada em frente ao prédio (a fachada olha para +z).
-      const fundo = lote.vaga.modelo === "remoto" ? REMOTE_HOUSE.footprint[1] : FACADES[lote.vaga.categoria].footprint[1];
+      const fundo = facadeDaVaga(lote.vaga).footprint[1];
       return { x: lote.x, z: lote.z + fundo / 2 + 3.5, yaw: OLHANDO_NORTE };
     }
     if (mundo.tipo === "cidade" && chegada === "ponte") return { ...mundo.nascimento.ponte, yaw: OLHANDO_OESTE };

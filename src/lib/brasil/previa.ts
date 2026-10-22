@@ -2,8 +2,17 @@
 import { ORDEM_CATEGORIAS, type Categoria } from "@/data/vagas";
 import type { Cidade } from "@/data/brasil/tipos";
 import type { VagaNacional } from "@/data/brasil/vagas";
+import { destaqueAtivo } from "@/lib/cidade/mundo";
 
-export type ConstrucaoPrevia = { vagaId: string; categoria: Categoria; aberta: boolean; x: number; z: number };
+export type ConstrucaoPrevia = {
+  vagaId: string;
+  categoria: Categoria;
+  aberta: boolean;
+  /** Patrocinada: vira a torre dourada, no centro da cidade. */
+  destaque: boolean;
+  x: number;
+  z: number;
+}
 
 export type Previa = { construcoes: ConstrucaoPrevia[]; excedente: number; raio: number };
 
@@ -18,6 +27,7 @@ export function previaDaCidade(cidade: Cidade, vagas: readonly VagaNacional[], m
     .sort(
       (a, b) =>
         Number(b.status === "aberta") - Number(a.status === "aberta") ||
+        Number(destaqueAtivo(b)) - Number(destaqueAtivo(a)) ||
         ORDEM_CATEGORIAS.indexOf(a.categoria) - ORDEM_CATEGORIAS.indexOf(b.categoria) ||
         (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
     );
@@ -30,6 +40,7 @@ export function previaDaCidade(cidade: Cidade, vagas: readonly VagaNacional[], m
       vagaId: v.id,
       categoria: v.categoria,
       aberta: v.status === "aberta",
+      destaque: destaqueAtivo(v),
       x: cidade.x + r * Math.cos(a),
       z: cidade.z + r * Math.sin(a),
     };
