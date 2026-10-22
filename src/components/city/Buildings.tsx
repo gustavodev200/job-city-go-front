@@ -3,8 +3,8 @@
 import { useFrame } from "@react-three/fiber";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import type { Modelo } from "@/data/vagas";
 import { useGameStore } from "@/stores/game";
+import { MODELO_COLORS } from "./cores";
 import { FACADES, FILLER_HOUSES, REMOTE_HOUSE, car } from "./facades";
 import { InstancedParts } from "./Instanced";
 import {
@@ -19,11 +19,6 @@ import {
   vagaSpots,
 } from "./layout";
 
-export const MODELO_COLORS: Record<Modelo, string> = {
-  presencial: "#f08a24",
-  hibrido: "#7b5cff",
-  remoto: "#1d9f95",
-};
 const CLOSED_COLOR = "#8a8f96";
 
 const CAR_PARTS = CAR_COLORS.map(car);

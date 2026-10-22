@@ -1,17 +1,24 @@
 "use client";
 
 import { useFrame, useThree } from "@react-three/fiber";
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { AREAS, walkHeight } from "@/data/mapa";
 import { useGameStore, type Travel } from "@/stores/game";
 import { isBlocked, isInsideBuilding, nearestVagaId } from "./layout";
+import { playerRuntime } from "./playerRuntime";
+import { isInsideCanopy } from "./Trees";
+import { Desenvolvedor, applyGait, type GaitState, type Rig } from "@/components/personagem/Desenvolvedor";
 
-/** Posição atual do personagem, lida por outros componentes dentro do loop (ex.: sol/sombras). */
-export const playerRuntime = { position: new THREE.Vector3(AREAS.cidade.x, 0, AREAS.cidade.z) };
 
-const SPEED = 9;
-const RUN_SPEED = 15;
+// Speeds tuned to the character's leg length so the gait reads as a brisk walk / run.
+const SPEED = 5;
+const RUN_SPEED = 10;
+/** Character scale: ~1.95 m tall, shorter than the 2.4 m doors. */
+const CHARACTER_SCALE = 0.75;
+/** World distance covered per step (one foot) at walk / run pace. */
+const WALK_STEP = 1.1;
+const RUN_STEP = 1.7;
 const JUMP_SPEED = 7.5;
 const GRAVITY = 22;
 const RADIUS = 0.5;
@@ -24,81 +31,13 @@ const _dir = new THREE.Vector3();
 const _probe = new THREE.Vector3();
 const _desired = new THREE.Vector3();
 
-const ORANGE = "#e8792b";
-const CREAM = "#fff4e6";
-const DARK = "#24272c";
-
-/** Raposinha feita de primitivas — frente = +z. */
-function Fox({ legs }: { legs: RefObject<(THREE.Mesh | null)[]> }) {
-  return (
-    <group>
-      {[-0.14, 0.14].map((x, i) => (
-        <mesh
-          key={x}
-          ref={(m) => {
-            legs.current[i] = m;
-          }}
-          position={[x, 0.3, 0]}
-          castShadow
-        >
-          <capsuleGeometry args={[0.1, 0.4, 4, 8]} />
-          <meshStandardMaterial color={DARK} />
-        </mesh>
-      ))}
-      <mesh position={[0, 0.82, 0]} castShadow>
-        <capsuleGeometry args={[0.3, 0.32, 6, 12]} />
-        <meshStandardMaterial color={DARK} />
-      </mesh>
-      {[-1, 1].map((side) => (
-        <mesh key={side} position={[side * 0.36, 0.86, 0]} rotation-z={side * 0.25} castShadow>
-          <capsuleGeometry args={[0.08, 0.32, 4, 8]} />
-          <meshStandardMaterial color={ORANGE} />
-        </mesh>
-      ))}
-      <mesh position={[0, 1.42, 0]} castShadow>
-        <sphereGeometry args={[0.36, 20, 16]} />
-        <meshStandardMaterial color={ORANGE} />
-      </mesh>
-      <mesh position={[0, 1.33, 0.27]} rotation-x={Math.PI / 2}>
-        <coneGeometry args={[0.16, 0.32, 12]} />
-        <meshStandardMaterial color={CREAM} />
-      </mesh>
-      <mesh position={[0, 1.33, 0.44]}>
-        <sphereGeometry args={[0.05, 8, 8]} />
-        <meshStandardMaterial color={DARK} />
-      </mesh>
-      {/* Óculos escuros */}
-      <mesh position={[0, 1.5, 0.3]}>
-        <boxGeometry args={[0.52, 0.11, 0.06]} />
-        <meshStandardMaterial color="#111111" roughness={0.2} />
-      </mesh>
-      {[-1, 1].map((side) => (
-        <mesh key={side} position={[side * 0.2, 1.8, -0.02]} rotation-z={side * -0.25} castShadow>
-          <coneGeometry args={[0.12, 0.34, 4]} />
-          <meshStandardMaterial color={ORANGE} />
-        </mesh>
-      ))}
-      <group position={[0, 0.6, -0.32]} rotation-x={-0.9}>
-        <mesh position={[0, 0.25, 0]} castShadow>
-          <capsuleGeometry args={[0.15, 0.4, 6, 10]} />
-          <meshStandardMaterial color={ORANGE} />
-        </mesh>
-        <mesh position={[0, 0.58, 0]}>
-          <sphereGeometry args={[0.15, 10, 8]} />
-          <meshStandardMaterial color={CREAM} />
-        </mesh>
-      </group>
-    </group>
-  );
-}
-
 type TravelAnim = { from: THREE.Vector2; to: THREE.Vector2; t: number; duration: number; arc: number };
 
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 export function Player() {
   const group = useRef<THREE.Group>(null);
-  const legs = useRef<(THREE.Mesh | null)[]>([]);
+  const rig = useRef<Rig>(null);
   const camera = useThree((state) => state.camera);
   const canvas = useThree((state) => state.gl.domElement);
 
@@ -112,7 +51,8 @@ export function Player() {
     facing: Math.PI,
     yaw: 0,
     pitch: 0.45,
-    walkPhase: 0,
+    gait: { phase: 0, move: 0, run: 0, air: 0, land: 0, time: 0 } as GaitState,
+    speed: 0,
     nearbyTimer: 0,
     travel: null as Travel | null,
     anim: null as TravelAnim | null,
@@ -189,7 +129,8 @@ export function Player() {
     const dt = Math.min(rawDelta, 0.05);
     const s = sim.current;
     const store = useGameStore.getState();
-    let moving = false;
+    const prevX = s.x;
+    const prevZ = s.z;
 
     // Nova viagem pedida pelo HUD
     if (store.travel && store.travel !== s.travel) {
@@ -219,6 +160,7 @@ export function Player() {
       if (a.t >= 1) {
         s.anim = null;
         s.grounded = true;
+        s.gait.land = 1;
         store.finishTravel();
       }
     } else {
@@ -247,7 +189,6 @@ export function Player() {
           s.z = nz;
         }
         s.facing = Math.atan2(dx, dz);
-        moving = true;
       }
 
       if (k.has("Space") && s.grounded) {
@@ -260,6 +201,8 @@ export function Player() {
       s.y += s.vy * dt;
       // Gruda no chão em descidas suaves; sobe degraus pequenos (ponte, calçada).
       if (s.y <= floor || (s.grounded && s.vy <= 0 && s.y - floor < 0.45)) {
+        // Touchdown after a real fall: knees absorb it in proportion to the impact speed.
+        if (!s.grounded && s.vy < -3) s.gait.land = Math.min(1, -s.vy / 10);
         s.y = floor;
         s.vy = 0;
         s.grounded = true;
@@ -275,11 +218,25 @@ export function Player() {
       const turn = Math.atan2(Math.sin(s.facing - g.rotation.y), Math.cos(s.facing - g.rotation.y));
       g.rotation.y += turn * Math.min(1, dt * 12);
     }
-    s.walkPhase = moving && s.grounded ? s.walkPhase + dt * 12 : 0;
-    legs.current.forEach((leg, i) => {
-      if (leg) leg.rotation.x = Math.sin(s.walkPhase + i * Math.PI) * 0.6;
-    });
-    playerRuntime.position.set(s.x, s.y, s.z);
+    // Gait driven by the distance actually travelled (after collisions), so feet don't skate.
+    const travelled = s.anim ? 0 : Math.hypot(s.x - prevX, s.z - prevZ);
+    s.speed += (travelled / Math.max(dt, 1e-4) - s.speed) * (1 - Math.exp(-dt * 10));
+    const gait = s.gait;
+    gait.time += dt;
+    gait.move = THREE.MathUtils.smoothstep(s.speed, 0.2, 2.5);
+    gait.run = THREE.MathUtils.clamp((s.speed - SPEED * 1.1) / (RUN_SPEED - SPEED * 1.1), 0, 1);
+    if (s.grounded) {
+      const step = THREE.MathUtils.lerp(WALK_STEP, RUN_STEP, gait.run);
+      gait.phase += (travelled / (2 * step)) * Math.PI * 2;
+    }
+    const inAir = s.anim !== null || !s.grounded ? 1 : 0;
+    gait.air += (inAir - gait.air) * (1 - Math.exp(-dt * 14));
+    gait.land *= Math.exp(-dt * 7);
+    if (rig.current) applyGait(rig.current, gait);
+    playerRuntime.position.x = s.x;
+    playerRuntime.position.y = s.y;
+    playerRuntime.position.z = s.z;
+    if (g) playerRuntime.heading = g.rotation.y;
 
     // Third-person camera; pulled in when a building sits between it and the player.
     const target = _target.set(s.x, s.y + 1.4, s.z);
@@ -293,7 +250,7 @@ export function Player() {
       const d = (store.cameraDistance * i) / CAMERA_PROBES;
       if (d < 2) continue; // the player may be hugging a wall
       const p = _probe.copy(target).addScaledVector(dir, d);
-      if (isInsideBuilding(p.x, p.y, p.z, 0.25)) {
+      if (isInsideBuilding(p.x, p.y, p.z, 0.25) || isInsideCanopy(p.x, p.y, p.z)) {
         free = Math.max(MIN_CAMERA_DISTANCE, d - store.cameraDistance / CAMERA_PROBES);
         break;
       }
@@ -324,7 +281,7 @@ export function Player() {
 
   return (
     <group ref={group}>
-      <Fox legs={legs} />
+      <Desenvolvedor ref={rig} scale={CHARACTER_SCALE} />
     </group>
   );
 }

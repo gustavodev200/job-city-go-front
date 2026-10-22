@@ -86,9 +86,17 @@ const buckets: Record<Kind, Instance[]> = {
 };
 
 /** Places a plant unless it would clip into a building. */
+/** Tree canopies as spheres, so the camera can avoid ending up inside foliage. */
+const canopies: { x: number; y: number; z: number; r: number }[] = [];
+
 function plant(kind: Kind, x: number, y: number, z: number, radius: number, scale = 0.85 + rand() * 0.4) {
   if (overlapsBuilding(x, z, radius * scale)) return;
   buckets[kind].push({ x, y, z, rotY: rand() * Math.PI * 2, scale });
+  if (kind !== "bush" && kind !== "flowers") canopies.push({ x, y: y + 2.8 * scale, z, r: 1.6 * scale });
+}
+
+export function isInsideCanopy(x: number, y: number, z: number) {
+  return canopies.some((c) => (x - c.x) ** 2 + (y - c.y) ** 2 + (z - c.z) ** 2 < c.r * c.r);
 }
 
 const pickTree = (): Kind => {
