@@ -1,4 +1,65 @@
-# workspace-agents
+# Job City Go — Front
+
+Front-end do Job City Go: mapa 3D de uma cidade onde as vagas de emprego
+aparecem como prédios. Next.js (App Router) + React Three Fiber.
+
+O backend fica em outro projeto. Nesta etapa o front **não** chama nenhuma
+API — as vagas vêm de um mock local em `src/data/vagas.ts`.
+
+## Stack
+
+- Next.js 16 (App Router, TypeScript, webpack — Turbopack desativado)
+- React 19
+- Tailwind CSS 4 (via `@tailwindcss/postcss`)
+- three, @react-three/fiber, @react-three/drei
+- zustand
+
+## Como rodar
+
+Requer Node.js 20.9+ (testado com Node 24).
+
+```bash
+npm install
+cp .env.example .env.local   # opcional nesta etapa
+npm run dev                  # http://localhost:3000
+```
+
+Outros scripts:
+
+```bash
+npm run build   # build de produção (webpack)
+npm run start   # serve o build
+npm run lint    # ESLint
+```
+
+## Variáveis de ambiente
+
+| Variável | Uso |
+|---|---|
+| `NEXT_PUBLIC_API_URL` | URL base da API do backend. Deixe vazia por enquanto: será usada quando o backend existir. Hoje nenhum código lê essa variável. |
+
+Variáveis `NEXT_PUBLIC_*` são embutidas no bundle do navegador — nunca
+coloque segredo nelas.
+
+## Estrutura
+
+```
+src/
+  app/page.tsx                 # tela cheia: cena 3D (next/dynamic, ssr: false) + HUD
+  components/city/
+    CityScene.tsx              # Canvas do R3F, luzes e chão
+    Buildings.tsx              # prédios por categoria (InstancedMesh) — a implementar
+    Roads.tsx                  # ruas em grade e calçadas — a implementar
+    Trees.tsx                  # árvores instanciadas — a implementar
+    Player.tsx                 # personagem e movimento — a implementar
+    Hud.tsx                    # vaga mais próxima e legenda
+  stores/game.ts               # Zustand: posição do jogador, vaga selecionada
+  data/vagas.ts                # vagas fictícias (mock)
+```
+
+---
+
+# Workspace de agentes (base deste repositório)
 
 Workspace/template pessoal para desenvolvimento de software com agentes de
 IA — Claude Code + o [spec-kit](https://github.com/github/spec-kit) oficial
