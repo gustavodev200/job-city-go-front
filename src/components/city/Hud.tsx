@@ -79,7 +79,7 @@ function PlacaArea() {
   return (
     <aside
       aria-label="Área atual"
-      className="placa-madeira pointer-events-none absolute top-3 left-3 rounded-xl px-3 py-2 md:top-4 md:left-4 md:px-4 md:py-3"
+      className="placa-madeira pointer-events-none absolute top-14 left-3 rounded-xl px-3 py-2 md:top-16 md:left-4 md:px-4 md:py-3"
     >
       <span className="prego absolute top-1.5 left-1.5" aria-hidden="true" />
       <span className="prego absolute top-1.5 right-1.5" aria-hidden="true" />

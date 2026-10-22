@@ -7,6 +7,7 @@ import { cicloRuntime } from "@/components/city/ciclo";
 import { cidades } from "@/data/brasil/cidades";
 import { AGREGADO_CIDADE } from "@/lib/brasil/agregados";
 import { celulaDoPonto, topoDaCelula } from "@/lib/brasil/geo";
+import { useUfDaRota } from "@/lib/brasil/navegacao";
 
 const RAIO = 0.6;
 const EMISSIVO_DIA = 0.55;
@@ -56,14 +57,14 @@ const HALO_MATERIAL = new THREE.PointsMaterial({
 });
 const HALO_GEOMETRIA = new THREE.BufferGeometry().setAttribute(
   "position",
-  new THREE.Float32BufferAttribute(
-    torres.flatMap((t) => [t.cidade.x, t.base + alturaTorre(t.abertas) + 0.2, t.cidade.z]),
-    3,
-  ),
+  new THREE.Float32BufferAttribute(torres.length * 3, 3),
 );
+/** Fora da vista: torres e halos da UF aberta no nível Estado (lá ficam os aglomerados). */
+const ESCONDIDO_Y = -1000;
 
 export function TorresVagas() {
   const instancias = useRef<THREE.InstancedMesh>(null);
+  const ufDaRota = useUfDaRota();
 
   useLayoutEffect(() => {
     // A textura usa canvas do DOM: criada só no cliente, uma vez.
@@ -74,14 +75,19 @@ export function TorresVagas() {
     const mesh = instancias.current;
     if (!mesh) return;
     const m = new THREE.Matrix4();
+    const halos = HALO_GEOMETRIA.getAttribute("position") as THREE.BufferAttribute;
     torres.forEach((t, i) => {
       const h = alturaTorre(t.abertas);
-      m.makeScale(1, h, 1).setPosition(t.cidade.x, t.base + h / 2, t.cidade.z);
+      const escondida = t.cidade.uf === ufDaRota;
+      m.makeScale(escondida ? 0 : 1, h, escondida ? 0 : 1).setPosition(t.cidade.x, t.base + h / 2, t.cidade.z);
       mesh.setMatrixAt(i, m);
+      halos.setXYZ(i, t.cidade.x, escondida ? ESCONDIDO_Y : t.base + h + 0.2, t.cidade.z);
     });
     mesh.instanceMatrix.needsUpdate = true;
     mesh.computeBoundingSphere();
-  }, []);
+    halos.needsUpdate = true;
+    HALO_GEOMETRIA.computeBoundingSphere();
+  }, [ufDaRota]);
 
   useFrame(() => {
     MATERIAL.emissiveIntensity = THREE.MathUtils.lerp(EMISSIVO_DIA, EMISSIVO_NOITE, cicloRuntime.luzes);

@@ -76,6 +76,11 @@ export function Relevo() {
         e.stopPropagation();
         const uf = ufNoPonto(e);
         if (!uf) return;
+        // No nível Estado, tocar no próprio estado é "tocar fora" da cidade em foco.
+        if (uf === ufDaRota) {
+          useMapaStore.getState().focarCidade(null);
+          return;
+        }
         // Toque: 1º toque mostra o resumo, 2º na mesma UF entra.
         const toque = (e.nativeEvent as PointerEvent).pointerType === "touch";
         if (toque && useMapaStore.getState().ufEmFoco !== uf) focar(uf);

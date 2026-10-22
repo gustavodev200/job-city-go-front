@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { TOTAL_ABERTAS_BRASIL } from "@/lib/brasil/agregados";
 import { useConfirmarUf } from "@/lib/brasil/navegacao";
 import { useMapaStore } from "@/stores/mapa";
+import { Trilha } from "./Trilha";
 import { ListaEstados } from "./ListaEstados";
 import { ResumoUf } from "./ResumoUf";
 
@@ -22,6 +23,9 @@ export function HudBrasil() {
   return (
     <>
       <div className="pointer-events-none absolute top-3 left-3 z-20 flex flex-col items-start gap-2 md:top-4 md:left-4">
+        <div className="bloco-notas pointer-events-auto rounded-lg px-3 py-1">
+          <Trilha />
+        </div>
         <div className="placa-madeira rounded-xl px-3 py-2 md:px-4 md:py-3">
           <h1 className="fonte-serifa text-sm leading-tight font-bold md:text-lg">Job City Go · Brasil</h1>
           <p className="text-[11px] text-[#ffe9c7] md:text-xs">

@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { cidades } from "@/data/brasil/cidades";
 import { AGREGADO_REMOTO } from "@/lib/brasil/agregados";
-import { hrefEstado } from "@/lib/brasil/rotas";
+import { useUfDaRota } from "@/lib/brasil/navegacao";
+import { hrefCidade } from "@/lib/brasil/rotas";
 import { useReidratar } from "@/stores/armazenamento";
 import { useMapaStore } from "@/stores/mapa";
 import { usePerfilStore } from "@/stores/perfil";
@@ -16,9 +17,6 @@ import { mapaRuntime } from "./runtime";
 // Lê o relógio do dispositivo: só no cliente.
 const ControleHora = dynamic(() => import("@/components/city/ControleHora"), { ssr: false });
 
-/** Cidades que já têm cena 3D (a spec 003 generaliza). */
-const COM_CENA = new Set(["goiania-go"]);
-
 /** Controles comuns aos níveis Brasil e Estado (ficam no layout). */
 export function ControlesMapa() {
   useReidratar(useMapaStore, usePerfilStore);
@@ -27,7 +25,9 @@ export function ControlesMapa() {
   const cidadeId = usePerfilStore((s) => s.cidadeId);
   const [escolhendo, setEscolhendo] = useState(false);
   const cidade = cidades.find((c) => c.id === cidadeId);
-  const hrefMinhaCidade = cidade && (COM_CENA.has(cidade.id) ? `/cidade/${cidade.id}` : hrefEstado(cidade.uf));
+  const hrefMinhaCidade = cidade && hrefCidade(cidade.id);
+  // No celular, no nível Estado, a gaveta de cidades ocupa a base da tela.
+  const naGaveta = useUfDaRota() !== null;
 
   return (
     <>
@@ -52,7 +52,7 @@ export function ControlesMapa() {
         {modo === "calor" && <LegendaCalor />}
       </div>
 
-      <div className="pointer-events-auto absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-1.5rem)] flex-col items-start gap-2 md:bottom-4 md:left-4">
+      <div className={`pointer-events-auto absolute left-3 z-20 flex max-w-[calc(100%-1.5rem)] flex-col items-start gap-2 md:bottom-4 md:left-4 ${naGaveta ? "bottom-20" : "bottom-3"}`}>
         {escolhendo && (
           <div className="bloco-notas w-64 rounded-lg p-3">
             <EscolherCidade aoEscolher={() => setEscolhendo(false)} />

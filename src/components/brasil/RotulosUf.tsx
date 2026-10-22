@@ -4,6 +4,7 @@ import { Html } from "@react-three/drei";
 import { UFS } from "@/data/brasil/estados";
 import { AGREGADO_UF } from "@/lib/brasil/agregados";
 import { ALTURA_DEGRAU, UF_GEO } from "@/lib/brasil/geo";
+import { useUfDaRota } from "@/lib/brasil/navegacao";
 import { useIsNarrow } from "@/lib/movimento";
 import { useMapaStore } from "@/stores/mapa";
 
@@ -11,9 +12,11 @@ import { useMapaStore } from "@/stores/mapa";
 export function RotulosUf() {
   const ufEmFoco = useMapaStore((s) => s.ufEmFoco);
   const narrow = useIsNarrow();
+  // No nível Estado, a UF aberta mostra os rótulos das cidades no lugar do dela.
+  const ufDaRota = useUfDaRota();
   return (
     <>
-      {UFS.map((uf) => {
+      {UFS.filter((uf) => uf !== ufDaRota).map((uf) => {
         const [x, z] = UF_GEO[uf].rotulo;
         const foco = uf === ufEmFoco;
         return (

@@ -88,11 +88,11 @@ execução: US1 → US2 → US4 → US3 (US3 é P2; US4 é P1).
 
 **Independent Test**: abrir `/estado/mg` por link direto e conferir que todas as cidades com vaga aparecem com contagens corretas; `/estado/go` afastado sem rótulos sobrepostos (quickstart passos 1–3)
 
-- [ ] T017 [P] [US1] Criar src/components/brasil/Aglomerados.tsx: um `InstancedMesh` de caixas para as cidades de `cidadesDoEstado(useUfDaRota())` (R3: nº de caixas `clamp(round(2 + 1.5·√total), 3, 12)`, alturas e posições por `criarAleatorio` semeado por hash do id, raio ≤ 0,8 ∝ √total, base em `topoDaCelula` da célula da cidade); material claro com emissivo seguindo `cicloRuntime.luzes` como TorresVagas.tsx; cidade com `abertas === 0` usa cor apagada; `onPointerOver/onClick` focam a cidade (`focarCidade`) seguindo a regra mouse/toque de Relevo.tsx (1º toque foca); recebe prop `ocultar?: ReadonlySet<string>` (usada pela US3)
-- [ ] T018 [P] [US1] Criar src/components/brasil/RotulosCidade.tsx: projeta (camera + `Vector3.project`) a posição de cada cidade da UF para pixels, no máx. a cada 100 ms e ao fim do voo (`useFrame` + relógio), monta `PontoRotulo` (prioridade máxima para `cidadeEmFoco` e `perfil.cidadeId`, depois abertas), chama `agruparRotulos` e renderiza um `Html` do drei por grupo: texto "Nome · N vagas" (ou "Nome · 0 vagas abertas" apagado), chip "+K cidades" quando o grupo tem membros extras; rótulo e chip são `aria-hidden` mas clicáveis (rótulo foca a cidade; chip chama `mapaRuntime.enquadrar(caixa dos membros)`); estilo igual a RotulosUf.tsx (foco = âmbar)
-- [ ] T019 [US1] Em src/components/brasil/runtime.ts adicionar `enquadrar(caixa: {minX,minZ,maxX,maxZ}) => void` e `irPara(x, z, distancia) => void`; implementar ambos em src/components/brasil/CameraMapa.tsx reutilizando o voo existente (`voo.current`); `DISTANCIA_MINIMA` dos `MapControls` = 6 quando `useUfDaRota()` ≠ null, 18 no Brasil
-- [ ] T020 [US1] Em src/components/brasil/TorresVagas.tsx não desenhar torres de cidades da UF da rota (`useUfDaRota()`); demais UFs continuam
-- [ ] T021 [US1] Em src/components/brasil/BrasilCena.tsx montar `<Aglomerados/>` e `<RotulosCidade/>` só quando `useUfDaRota()` ≠ null; ao sair do nível Estado (`uf` vira null ou muda) limpar `cidadeEmFoco` em efeito de src/components/brasil/PainelEstado.tsx (junto do `focar(null)` existente)
+- [X] T017 [P] [US1] Criar src/components/brasil/Aglomerados.tsx: um `InstancedMesh` de caixas para as cidades de `cidadesDoEstado(useUfDaRota())` (R3: nº de caixas `clamp(round(2 + 1.5·√total), 3, 12)`, alturas e posições por `criarAleatorio` semeado por hash do id, raio ≤ 0,8 ∝ √total, base em `topoDaCelula` da célula da cidade); material claro com emissivo seguindo `cicloRuntime.luzes` como TorresVagas.tsx; cidade com `abertas === 0` usa cor apagada; `onPointerOver/onClick` focam a cidade (`focarCidade`) seguindo a regra mouse/toque de Relevo.tsx (1º toque foca); recebe prop `ocultar?: ReadonlySet<string>` (usada pela US3)
+- [X] T018 [P] [US1] Criar src/components/brasil/RotulosCidade.tsx: projeta (camera + `Vector3.project`) a posição de cada cidade da UF para pixels, no máx. a cada 100 ms e ao fim do voo (`useFrame` + relógio), monta `PontoRotulo` (prioridade máxima para `cidadeEmFoco` e `perfil.cidadeId`, depois abertas), chama `agruparRotulos` e renderiza um `Html` do drei por grupo: texto "Nome · N vagas" (ou "Nome · 0 vagas abertas" apagado), chip "+K cidades" quando o grupo tem membros extras; rótulo e chip são `aria-hidden` mas clicáveis (rótulo foca a cidade; chip chama `mapaRuntime.enquadrar(caixa dos membros)`); estilo igual a RotulosUf.tsx (foco = âmbar)
+- [X] T019 [US1] Em src/components/brasil/runtime.ts adicionar `enquadrar(caixa: {minX,minZ,maxX,maxZ}) => void` e `irPara(x, z, distancia) => void`; implementar ambos em src/components/brasil/CameraMapa.tsx reutilizando o voo existente (`voo.current`); `DISTANCIA_MINIMA` dos `MapControls` = 6 quando `useUfDaRota()` ≠ null, 18 no Brasil
+- [X] T020 [US1] Em src/components/brasil/TorresVagas.tsx não desenhar torres de cidades da UF da rota (`useUfDaRota()`); demais UFs continuam
+- [X] T021 [US1] Em src/components/brasil/BrasilCena.tsx montar `<Aglomerados/>` e `<RotulosCidade/>` só quando `useUfDaRota()` ≠ null; ao sair do nível Estado (`uf` vira null ou muda) limpar `cidadeEmFoco` em efeito de src/components/brasil/PainelEstado.tsx (junto do `focar(null)` existente)
 
 **Checkpoint**: US1 demonstrável — quickstart 1, 2, 3, 14 e 16 ("Você está aqui" já existe; conferir escala no zoom do estado)
 
@@ -104,10 +104,10 @@ execução: US1 → US2 → US4 → US3 (US3 é P2; US4 é P1).
 
 **Independent Test**: focar 3 cidades e conferir cada contagem contra o mock; ordenar lista por vagas/nome/distância (quickstart 4–5)
 
-- [ ] T022 [P] [US2] Criar src/components/brasil/CartaoCidade.tsx: recebe `cidadeId`, mostra nome, "N vagas abertas" (+ "M encerradas" se houver), barras horizontais só das categorias com vaga (ordem `ORDEM_CATEGORIAS`, `CategoriaIcon` de src/components/city/icons.tsx, largura ∝ total/máx.), presencial/híbrido com `ModeloIcon`, botões "Entrar na cidade" (link `hrefCidade`, ligado na US4) e "Fechar" (`focarCidade(null)`); conteúdo dentro de região `aria-live="polite"` com frase do contrato ("Anápolis: 12 vagas abertas. Comércio 4, …"); visual coerente com ResumoUf.tsx
-- [ ] T023 [P] [US2] Criar src/components/brasil/ListaCidades.tsx: `<select>` Ordenar por Vagas | Nome | Distância (Distância só se `perfil.cidadeId` existe; usa `distanciaKm` e mostra "≈ N km"); lista de `<button aria-pressed>` com texto completo ("Anápolis, 12 vagas abertas, 3 encerradas"), ↑/↓ movem foco entre itens, Enter/Espaço focam a cidade, Esc limpa; padrão de teclado de ListaEstados.tsx
-- [ ] T024 [US2] Reescrever src/components/brasil/PainelEstado.tsx: `<Trilha uf>` + `ResumoUf` compacto da UF + `CartaoCidade` (quando há `cidadeEmFoco`) + `ListaCidades` + slot para `EstadosVizinhos` (US4); desktop (`md:`) painel lateral esquerdo `bloco-notas` com rolagem interna (máx. altura da tela); celular: trilha no topo e gaveta inferior (`<section>` com botão-alça `aria-expanded`, recolhida ≤ 96 px mostrando cidade em foco ou "N cidades", aberta ≤ 60dvh) — sem dependência nova
-- [ ] T025 [US2] Focar cidade (mapa, rótulo ou lista) faz a câmera voar até ela com `mapaRuntime.irPara(cidade.x, cidade.z, 14)` (efeito em PainelEstado.tsx observando `cidadeEmFoco`; reduzir movimento já é tratado em CameraMapa)
+- [X] T022 [P] [US2] Criar src/components/brasil/CartaoCidade.tsx: recebe `cidadeId`, mostra nome, "N vagas abertas" (+ "M encerradas" se houver), barras horizontais só das categorias com vaga (ordem `ORDEM_CATEGORIAS`, `CategoriaIcon` de src/components/city/icons.tsx, largura ∝ total/máx.), presencial/híbrido com `ModeloIcon`, botões "Entrar na cidade" (link `hrefCidade`, ligado na US4) e "Fechar" (`focarCidade(null)`); conteúdo dentro de região `aria-live="polite"` com frase do contrato ("Anápolis: 12 vagas abertas. Comércio 4, …"); visual coerente com ResumoUf.tsx
+- [X] T023 [P] [US2] Criar src/components/brasil/ListaCidades.tsx: `<select>` Ordenar por Vagas | Nome | Distância (Distância só se `perfil.cidadeId` existe; usa `distanciaKm` e mostra "≈ N km"); lista de `<button aria-pressed>` com texto completo ("Anápolis, 12 vagas abertas, 3 encerradas"), ↑/↓ movem foco entre itens, Enter/Espaço focam a cidade, Esc limpa; padrão de teclado de ListaEstados.tsx
+- [X] T024 [US2] Reescrever src/components/brasil/PainelEstado.tsx: `<Trilha uf>` + `ResumoUf` compacto da UF + `CartaoCidade` (quando há `cidadeEmFoco`) + `ListaCidades` + slot para `EstadosVizinhos` (US4); desktop (`md:`) painel lateral esquerdo `bloco-notas` com rolagem interna (máx. altura da tela); celular: trilha no topo e gaveta inferior (`<section>` com botão-alça `aria-expanded`, recolhida ≤ 96 px mostrando cidade em foco ou "N cidades", aberta ≤ 60dvh) — sem dependência nova
+- [X] T025 [US2] Focar cidade (mapa, rótulo ou lista) faz a câmera voar até ela com `mapaRuntime.irPara(cidade.x, cidade.z, 14)` (efeito em PainelEstado.tsx observando `cidadeEmFoco`; reduzir movimento já é tratado em CameraMapa)
 
 **Checkpoint**: US1 + US2 — escolher cidade comparando categorias funciona por mapa e por lista
 
@@ -119,12 +119,12 @@ execução: US1 → US2 → US4 → US3 (US3 é P2; US4 é P1).
 
 **Independent Test**: Brasil → GO → Anápolis → trilha "Goiás" → voltar do navegador (quickstart 9–13, 15, 19)
 
-- [ ] T026 [P] [US4] Criar src/app/cidade/[slug]/page.tsx: `generateStaticParams` com todos os `id` de `cidades`; `generateMetadata` ("Vagas em Anápolis · Job City Go"); valida `params.slug` com `CidadeParamSchema` (inválido → `redirect("/?aviso=cidade")`); renderiza `<main>` com fundo do app, `<Trilha cidadeId>`, `<h1>`, `CartaoCidade` (sem botão "Entrar" nem "Fechar" — tornar opcionais via props) e aviso "A cidade 3D de <nome> chega em breve." com link para `hrefEstado(uf, id)`; conferir que `/cidade/goiania-go` (rota estática) continua com a cena 3D
-- [ ] T027 [P] [US4] Adicionar `<Trilha cidadeId="goiania-go">` em src/app/cidade/goiania-go/page.tsx e `<Trilha remoto>` em src/app/remoto/page.tsx (posição topo-esquerda, `z-30`); em src/components/city/Hud.tsx descer a placa de madeira (`top-3` → abaixo da trilha) para não sobrepor
-- [ ] T028 [P] [US4] Criar src/components/brasil/FocoPelaUrl.tsx: `useSearchParams()` lê `cidade`, valida com `cidadeFocoSchema(uf)` e chama `focarCidade` uma vez por (uf, valor); se não há parâmetro válido e `cidadesDoEstado(uf).length === 1`, foca essa cidade (edge case); montar em src/app/(mapa)/estado/[uf]/page.tsx dentro de `<Suspense fallback={null}>`
-- [ ] T029 [P] [US4] Criar src/components/brasil/EstadosVizinhos.tsx: `<nav aria-label="Estados vizinhos">` com `<Link href={hrefEstado(v)}>` para cada `VIZINHOS[uf]` (nome + "· N vagas" de `AGREGADO_UF`); encaixar em PainelEstado.tsx
-- [ ] T030 [US4] Ligar "Entrar na cidade" do CartaoCidade.tsx a `hrefCidade(id)`; 2º clique/toque no rótulo da cidade já em foco (RotulosCidade.tsx) também entra; em src/components/brasil/ControlesMapa.tsx remover `COM_CENA` e usar `hrefCidade(cidade.id)` em "Ir para minha cidade"
-- [ ] T031 [US4] Mostrar `<Trilha>` só "Brasil" no nível Brasil (src/app/(mapa)/page.tsx ou HudBrasil.tsx), mantendo o layout atual do HUD
+- [X] T026 [P] [US4] Criar src/app/cidade/[slug]/page.tsx: `generateStaticParams` com todos os `id` de `cidades`; `generateMetadata` ("Vagas em Anápolis · Job City Go"); valida `params.slug` com `CidadeParamSchema` (inválido → `redirect("/?aviso=cidade")`); renderiza `<main>` com fundo do app, `<Trilha cidadeId>`, `<h1>`, `CartaoCidade` (sem botão "Entrar" nem "Fechar" — tornar opcionais via props) e aviso "A cidade 3D de <nome> chega em breve." com link para `hrefEstado(uf, id)`; conferir que `/cidade/goiania-go` (rota estática) continua com a cena 3D
+- [X] T027 [P] [US4] Adicionar `<Trilha cidadeId="goiania-go">` em src/app/cidade/goiania-go/page.tsx e `<Trilha remoto>` em src/app/remoto/page.tsx (posição topo-esquerda, `z-30`); em src/components/city/Hud.tsx descer a placa de madeira (`top-3` → abaixo da trilha) para não sobrepor
+- [X] T028 [P] [US4] Criar src/components/brasil/FocoPelaUrl.tsx: `useSearchParams()` lê `cidade`, valida com `cidadeFocoSchema(uf)` e chama `focarCidade` uma vez por (uf, valor); se não há parâmetro válido e `cidadesDoEstado(uf).length === 1`, foca essa cidade (edge case); montar em src/app/(mapa)/estado/[uf]/page.tsx dentro de `<Suspense fallback={null}>`
+- [X] T029 [P] [US4] Criar src/components/brasil/EstadosVizinhos.tsx: `<nav aria-label="Estados vizinhos">` com `<Link href={hrefEstado(v)}>` para cada `VIZINHOS[uf]` (nome + "· N vagas" de `AGREGADO_UF`); encaixar em PainelEstado.tsx
+- [X] T030 [US4] Ligar "Entrar na cidade" do CartaoCidade.tsx a `hrefCidade(id)`; 2º clique/toque no rótulo da cidade já em foco (RotulosCidade.tsx) também entra; em src/components/brasil/ControlesMapa.tsx remover `COM_CENA` e usar `hrefCidade(cidade.id)` em "Ir para minha cidade"
+- [X] T031 [US4] Mostrar `<Trilha>` só "Brasil" no nível Brasil (src/app/(mapa)/page.tsx ou HudBrasil.tsx), mantendo o layout atual do HUD
 
 **Checkpoint**: P1 completo (US1 + US2 + US4) — spec cumpre o objetivo "escolher a cidade"
 
@@ -136,8 +136,8 @@ execução: US1 → US2 → US4 → US3 (US3 é P2; US4 é P1).
 
 **Independent Test**: focar Goiânia, aproximar e contar construções contra as vagas da cidade; sem foco nenhum prédio individual (quickstart 6–8)
 
-- [ ] T032 [US3] Criar src/components/brasil/PreviaCidade.tsx: para `cidadeEmFoco`, `previaDaCidade` → agrupa por categoria → um `<InstancedParts parts={FACADES[cat].parts} instances={…} shadows={false}/>` (de src/components/city/Instanced.tsx e src/components/city/facades.ts) por categoria, `scale` 0,045, `y` = `topoDaCelula` da cidade, `lit` = aberta, `dim` = encerrada, `rotY` voltado para o centro da espiral; visível só quando a distância câmera→cidade < 30 (checada em `useFrame`, alterna estado com histerese de 2 unidades)
-- [ ] T033 [US3] Quando a prévia está visível: passar para `Aglomerados` o conjunto `ocultar` com a cidade em foco e as cidades a < 1,2 unidade dela; RotulosCidade.tsx mostra "+N" no rótulo da cidade em foco quando `excedente > 0`; montar `<PreviaCidade/>` em BrasilCena.tsx no nível Estado
+- [X] T032 [US3] Criar src/components/brasil/PreviaCidade.tsx: para `cidadeEmFoco`, `previaDaCidade` → agrupa por categoria → um `<InstancedParts parts={FACADES[cat].parts} instances={…} shadows={false}/>` (de src/components/city/Instanced.tsx e src/components/city/facades.ts) por categoria, `scale` 0,045, `y` = `topoDaCelula` da cidade, `lit` = aberta, `dim` = encerrada, `rotY` voltado para o centro da espiral; visível só quando a distância câmera→cidade < 30 (checada em `useFrame`, alterna estado com histerese de 2 unidades)
+- [X] T033 [US3] Quando a prévia está visível: passar para `Aglomerados` o conjunto `ocultar` com a cidade em foco e as cidades a < 1,2 unidade dela; RotulosCidade.tsx mostra "+N" no rótulo da cidade em foco quando `excedente > 0`; montar `<PreviaCidade/>` em BrasilCena.tsx no nível Estado
 
 **Checkpoint**: todas as stories funcionando
 
@@ -145,11 +145,11 @@ execução: US1 → US2 → US4 → US3 (US3 é P2; US4 é P1).
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T034 [P] Criar tests/e2e/estado.spec.ts: `/` → GO → focar Anápolis pela lista → cartão com contagens (comparar com valores calculados em `agregados`) → "Entrar na cidade" → `/cidade/anapolis-go` com trilha → clicar "Goiás" → URL `/estado/go?cidade=anapolis-go` e Anápolis `aria-pressed=true` → `page.goBack()` duas vezes; vizinho GO → MG; `/cidade/nao-existe` → `/?aviso=cidade`; `/estado/go?cidade=campinas-sp` abre sem foco
-- [ ] T035 [P] Criar tests/e2e/teclado-estado.spec.ts: só teclado em `/estado/mg` — Tab até a lista, ↓/↑, Enter foca, região `aria-live` contém a frase do cartão, Esc limpa, Tab até "Entrar na cidade" e Enter navega
-- [ ] T036 [P] Criar tests/e2e/rotulos.spec.ts (SC-002): para as 27 UFs, em viewport 360×740 e 1920×1080, abrir `/estado/<uf>`, esperar fim do voo (estabilidade dos `boundingBox` dos rótulos em 2 leituras seguidas) e afirmar que nenhum par de rótulos visíveis se cruza
-- [ ] T037 [P] Criar tests/e2e/gaveta.spec.ts (projeto mobile "Pixel 7"): `/estado/sp` mostra gaveta recolhida; abrir pela alça (`aria-expanded`), tocar uma cidade, cartão aparece; nenhum rolar horizontal da página
-- [ ] T038 Orçamento de desempenho (R14): em `/estado/sp` com foco em São Paulo medir `renderer.info.render.calls` e triângulos (log temporário ou DevTools) — ≤ orçamento da 001 + 22 chamadas; anotar números em "Notas da implementação" abaixo
+- [X] T034 [P] Criar tests/e2e/estado.spec.ts: `/` → GO → focar Anápolis pela lista → cartão com contagens (comparar com valores calculados em `agregados`) → "Entrar na cidade" → `/cidade/anapolis-go` com trilha → clicar "Goiás" → URL `/estado/go?cidade=anapolis-go` e Anápolis `aria-pressed=true` → `page.goBack()` duas vezes; vizinho GO → MG; `/cidade/nao-existe` → `/?aviso=cidade`; `/estado/go?cidade=campinas-sp` abre sem foco
+- [X] T035 [P] Criar tests/e2e/teclado-estado.spec.ts: só teclado em `/estado/mg` — Tab até a lista, ↓/↑, Enter foca, região `aria-live` contém a frase do cartão, Esc limpa, Tab até "Entrar na cidade" e Enter navega
+- [X] T036 [P] Criar tests/e2e/rotulos.spec.ts (SC-002): para as 27 UFs, em viewport 360×740 e 1920×1080, abrir `/estado/<uf>`, esperar fim do voo (estabilidade dos `boundingBox` dos rótulos em 2 leituras seguidas) e afirmar que nenhum par de rótulos visíveis se cruza
+- [X] T037 [P] Criar tests/e2e/gaveta.spec.ts (projeto mobile "Pixel 7"): `/estado/sp` mostra gaveta recolhida; abrir pela alça (`aria-expanded`), tocar uma cidade, cartão aparece; nenhum rolar horizontal da página
+- [X] T038 Orçamento de desempenho (R14): em `/estado/sp` com foco em São Paulo medir `renderer.info.render.calls` e triângulos (log temporário ou DevTools) — ≤ orçamento da 001 + 22 chamadas; anotar números em "Notas da implementação" abaixo
 - [ ] T039 Conferir reduzir movimento (voo até cidade e enquadrar "+K" saltam direto) e `/estado/df` com Brasília + 5 regiões administrativas; percorrer [quickstart.md](quickstart.md) passos 1–20, `npm run lint`, `npm test`, `npm run test:e2e`, `npm run build` (sem aviso de `useSearchParams` fora de Suspense)
 
 ---
@@ -217,6 +217,23 @@ Task: "T029 EstadosVizinhos em src/components/brasil/EstadosVizinhos.tsx"
 - `/cidade/[slug]` é provisória: a spec 003 substitui o conteúdo e remove `/cidade/goiania-go`
 - Não mudar o comportamento da cidade 3D além da trilha e da posição da placa (T027)
 
-## Notas da implementação
+## Notas da implementação (2026-10-22)
 
-(preencher durante `/speckit-implement`)
+Desvios do plano, todos pequenos:
+
+- **T001/T002**: as 5 regiões administrativas do DF ficaram com as coordenadas da tarefa; o script valida forma, porte, UF, caixa do Brasil e IBGE repetido. `geo.json` não mudou.
+- **T007**: AC–RO não encosta na grade de 0,2° (fronteira curta); o teste de adjacência aceita até 2 células de distância — o motivo de `VIZINHOS` ser escrito à mão (R7).
+- **T012**: espiral de Vogel com passo 0,32 (≈ largura de uma fachada na escala 0,045), não 0,11; `Previa` ganhou `raio`, usado para ocultar aglomerados vizinhos (no lugar do raio fixo de 1,2).
+- **T017**: aglomerados em **2** `InstancedMesh` (acesos e apagados), não 1 — material emissivo não deixa "apagar" por cor de instância. Clique foca a cidade (sem foco por hover).
+- **T018**: um `Html` fixo por cidade, escondido quando não lidera grupo — montar/desmontar `Html` a cada reagrupamento gerava avisos do React. Clicar no rótulo da cidade já em foco entra nela.
+- **T019/T025**: o voo até a cidade em foco ficou dentro de `CameraMapa` (observa `cidadeEmFoco`), não em `mapaRuntime.irPara`: no link direto (`?cidade=`) o canvas monta depois do painel e o voo se perdia. `irPara` foi removido.
+- **T021**: no nível Estado, o rótulo "UF · N" da própria UF some (colidia com os das cidades) e clicar no relevo do próprio estado limpa o foco.
+- **T024**: página `/estado/[uf]` lê `params` dentro de `<Suspense>` — o Next 16.4 (validação de navegação instantânea) acusava "URL data outside Suspense" já na versão da 001. Barra inferior do `ControlesMapa` sobe no celular para não ficar sob a gaveta.
+- **T027**: trilha nas páginas `/cidade/goiania-go` e `/remoto` (o `Hud` é comum às duas); a placa do `Hud` desceu.
+- **T031**: trilha "Brasil" no `HudBrasil`, acima da placa.
+- **T034–T037**: E2E rodados contra `next start -p 3200` (a 3000 estava com o dev server). 15 + 3 passam, 11 pulados por projeto (desktop/mobile); SC-002 verificado nas 27 UFs em 360 px e 1920 px (5,3 min).
+- **T038**: medido por contagem de chamadas WebGL (média de 30 quadros, 1440×900): Brasil ≈ 7, `/estado/sp` ≈ 6, `/estado/sp?cidade=sao-paulo-sp` com prévia ≈ 19 — dentro do orçamento (001 + 22).
+
+**T039 em aberto**: lint, testes unitários (59), E2E e build passam; conferido por screenshot o nível Estado (GO, SP celular 360 px), foco pela URL, prévia de Goiânia e a página provisória de Anápolis. "Reduzir movimento" reaproveita o corte da 001 (`k = 1` em `CameraMapa`), não testado com a opção do sistema ligada. Falta a parte manual: leitor de tela real (NVDA/VoiceOver), celular físico e cronometrar SC-001/SC-003 com pessoas.
+
+Aviso conhecido (só em desenvolvimento, também em `/` desde a 001): "Attempted to synchronously unmount a root while React was already rendering", vindo do `Html` do drei ao desmontar.

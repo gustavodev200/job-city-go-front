@@ -7,12 +7,18 @@ import * as THREE from "three";
 import type { MapControls as MapControlsImpl } from "three-stdlib";
 import { CAIXA_BRASIL, UF_GEO } from "@/lib/brasil/geo";
 import { useUfDaRota } from "@/lib/brasil/navegacao";
+import { cidadePorId } from "@/lib/brasil/rotas";
 import { useReducedMotion } from "@/lib/movimento";
+import { useMapaStore } from "@/stores/mapa";
 import { mapaRuntime } from "./runtime";
 
 const GRAU = Math.PI / 180;
 const POLAR_INICIAL = 40 * GRAU;
 const DISTANCIA_MINIMA = 18;
+/** No nível Estado dá para chegar perto de uma cidade (prévia de prédios). */
+const DISTANCIA_MINIMA_ESTADO = 6;
+/** Distância ao focar uma cidade: perto o bastante para a prévia de prédios. */
+const DISTANCIA_FOCO_CIDADE = 14;
 /** Amortecimento do voo: ~95% do caminho em ~1 s. */
 const VELOCIDADE_VOO = 3;
 /** Margem do enquadramento (o estado deixa espaço para o painel lateral). */
@@ -63,6 +69,12 @@ export function CameraMapa() {
     mapaRuntime.centralizar = () => {
       voo.current = { alvo: destino.alvo.clone(), distancia: destino.distancia };
     };
+    mapaRuntime.enquadrar = (caixa) => {
+      // Grupos de cidades vizinhas são pequenos (região metropolitana): aproxima o
+      // bastante para os rótulos se separarem na tela.
+      const extensao = Math.max(caixa.maxX - caixa.minX, caixa.maxZ - caixa.minZ);
+      voo.current = { alvo: centro(caixa), distancia: Math.max(DISTANCIA_MINIMA_ESTADO, extensao * 12) };
+    };
     voo.current = destino;
     if (primeiro.current) {
       primeiro.current = false;
@@ -77,6 +89,16 @@ export function CameraMapa() {
       }
     }
   }, [uf, aspecto, camera]);
+
+  // Focar uma cidade (mapa, rótulo, lista ou ?cidade=) leva a câmera até ela. Roda depois
+  // do enquadramento do nível (efeito após layout effect), inclusive no primeiro quadro.
+  const cidadeEmFoco = useMapaStore((s) => s.cidadeEmFoco);
+  useEffect(() => {
+    const cidade = cidadeEmFoco ? cidadePorId.get(cidadeEmFoco) : undefined;
+    if (cidade && cidade.uf === uf) {
+      voo.current = { alvo: new THREE.Vector3(cidade.x, 0, cidade.z), distancia: DISTANCIA_FOCO_CIDADE };
+    }
+  }, [cidadeEmFoco, uf]);
 
   // Alvo preso à caixa do Brasil: não dá para perder o país de vista.
   useEffect(() => {
@@ -122,7 +144,7 @@ export function CameraMapa() {
       maxPolarAngle={65 * GRAU}
       minAzimuthAngle={-30 * GRAU}
       maxAzimuthAngle={30 * GRAU}
-      minDistance={DISTANCIA_MINIMA}
+      minDistance={uf ? DISTANCIA_MINIMA_ESTADO : DISTANCIA_MINIMA}
       maxDistance={distanciaBrasil * 1.4}
     />
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { Trilha } from "@/components/brasil/Trilha";
 import { Hud } from "@/components/city/Hud";
 import { OutdoorOverlay } from "@/components/city/OutdoorOverlay";
 
@@ -19,6 +20,9 @@ export default function BairroRemoto() {
       <Hud />
       <OutdoorOverlay />
       <ControleHora />
+      <div className="bloco-notas absolute top-3 left-3 z-30 rounded-lg px-3 py-1.5 md:top-4 md:left-4">
+        <Trilha remoto />
+      </div>
     </main>
   );
 }
