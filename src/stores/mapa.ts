@@ -14,7 +14,10 @@ type MapaState = {
   /** UF sob o ponteiro, 1º toque ou foco de teclado. O nível vem da URL, não daqui. */
   ufEmFoco: Uf | null;
   modo: ModoMapa;
+  /** Cidade em foco no nível Estado (id de `Cidade`). Não é persistida. */
+  cidadeEmFoco: string | null;
   focar: (uf: Uf | null) => void;
+  focarCidade: (id: string | null) => void;
   alternarModo: () => void;
 };
 
@@ -23,7 +26,9 @@ export const useMapaStore = create<MapaState>()(
     (set) => ({
       ufEmFoco: null,
       modo: "luzes",
+      cidadeEmFoco: null,
       focar: (ufEmFoco) => set({ ufEmFoco }),
+      focarCidade: (cidadeEmFoco) => set({ cidadeEmFoco }),
       alternarModo: () => set((s) => ({ modo: s.modo === "luzes" ? "calor" : "luzes" })),
     }),
     {

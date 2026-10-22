@@ -12,11 +12,22 @@ export const CATEGORIA_LABEL: Record<Categoria, string> = {
   comercio: "Comércio",
   escritorio: "Escritório",
   saude: "Saúde",
-  galpao: "Galpão",
-  obra: "Obra",
-  escola: "Escola",
-  bairro: "Estabelecimento de bairro",
+  galpao: "Logística e indústria",
+  obra: "Construção",
+  escola: "Educação",
+  bairro: "Serviços gerais",
 };
+
+/** Ordem fixa de exibição das categorias (barras, legendas, prévia). */
+export const ORDEM_CATEGORIAS: readonly Categoria[] = [
+  "comercio",
+  "escritorio",
+  "saude",
+  "galpao",
+  "obra",
+  "escola",
+  "bairro",
+];
 
 export type Modelo = "presencial" | "hibrido" | "remoto";
 

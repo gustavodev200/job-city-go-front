@@ -274,12 +274,35 @@ const slug = (texto) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
 
-const cidades = curadas.map(({ ibge, porte }) => {
-  const m = municipioPorIbge.get(ibge);
-  if (!m) falhar(`código IBGE ${ibge} não existe no CSV`);
-  const uf = siglaPorCodigo.get(m.codigo_uf);
-  const lat = Number(m.latitude);
-  const lon = Number(m.longitude);
+const PORTES = new Set(["capital", "grande", "media", "pequena"]);
+const ibgesVistos = new Set();
+
+/** Item da lista curada → { nome, uf, lat, lon, ibge, capital }. Formato: specs/002-mapa-estado/contracts/cidades-curadas.md. */
+function lerCurada(item, i) {
+  const onde = `cidades-curadas.json[${i}]`;
+  if (!PORTES.has(item.porte)) falhar(`${onde}: porte inválido "${item.porte}"`);
+  const manual = "nome" in item || "uf" in item || "lat" in item || "lon" in item;
+  if ("ibge" in item) {
+    if (manual) falhar(`${onde}: use só { ibge, porte } ou só { nome, uf, lat, lon, porte }`);
+    if (ibgesVistos.has(item.ibge)) falhar(`${onde}: código IBGE ${item.ibge} repetido`);
+    ibgesVistos.add(item.ibge);
+    const m = municipioPorIbge.get(item.ibge);
+    if (!m) falhar(`código IBGE ${item.ibge} não existe no CSV`);
+    const uf = siglaPorCodigo.get(m.codigo_uf);
+    return { nome: m.nome, uf, lat: Number(m.latitude), lon: Number(m.longitude), ibge: item.ibge, capital: m.capital === "1" };
+  }
+  // Entrada manual: regiões administrativas do DF (sem código IBGE de município).
+  const { nome, uf, lat, lon } = item;
+  if (typeof nome !== "string" || !nome.trim()) falhar(`${onde}: nome vazio`);
+  if (!UFS.includes(uf)) falhar(`${onde}: UF inválida "${uf}"`);
+  if (typeof lat !== "number" || typeof lon !== "number") falhar(`${onde}: lat/lon devem ser números`);
+  if (lon < minLon || lon > maxLon || lat < minLat || lat > maxLat) falhar(`${onde}: ${nome} fora da caixa do Brasil`);
+  return { nome, uf, lat, lon, ibge: null, capital: false };
+}
+
+const cidades = curadas.map((item, i) => {
+  const { nome, uf, lat, lon, ibge, capital } = lerCurada(item, i);
+  const { porte } = item;
   let [x, z] = projetar(lon, lat);
   // Cidades costeiras ou na divisa podem cair no mar ou na UF vizinha: a posição na
   // cena vai para o centro da célula mais próxima da própria UF (lat/lon seguem reais).
@@ -297,11 +320,11 @@ const cidades = curadas.map(({ ibge, porte }) => {
         if (!melhor || d < melhor.d) melhor = { d, x: c - cx, z: l - cz };
       }
     }
-    if (!melhor) falhar(`${m.nome}/${uf} longe demais de qualquer célula da UF`);
+    if (!melhor) falhar(`${nome}/${uf} longe demais de qualquer célula da UF`);
     x = arred(melhor.x);
     z = arred(melhor.z);
   }
-  return { id: `${slug(m.nome)}-${uf.toLowerCase()}`, ibge, nome: m.nome, uf, lat, lon, x, z, capital: m.capital === "1", porte };
+  return { id: `${slug(nome)}-${uf.toLowerCase()}`, ibge, nome, uf, lat, lon, x, z, capital, porte };
 });
 cidades.sort((a, b) => a.uf.localeCompare(b.uf) || a.nome.localeCompare(b.nome, "pt-BR"));
 if (new Set(cidades.map((c) => c.id)).size !== cidades.length) falhar("id de cidade repetido");

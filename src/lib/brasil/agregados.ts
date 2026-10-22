@@ -1,6 +1,8 @@
 // Contagens derivadas das vagas mock (FR-015: só vagas abertas; nunca números fixos).
 import { CATEGORIA_LABEL, type Categoria, type Modelo } from "@/data/vagas";
 import { UFS, type Uf } from "@/data/brasil/estados";
+import { cidades } from "@/data/brasil/cidades";
+import type { Cidade } from "@/data/brasil/tipos";
 import { vagasBrasil, type VagaNacional } from "@/data/brasil/vagas";
 
 export type AgregadoUf = {
@@ -12,7 +14,16 @@ export type AgregadoUf = {
   topCategorias: { categoria: Categoria; total: number }[];
 };
 
-export type AgregadoCidade = { cidadeId: string; uf: Uf; abertas: number };
+export type AgregadoCidade = {
+  cidadeId: string;
+  uf: Uf;
+  abertas: number;
+  encerradas: number;
+  /** Só abertas; categoria ausente = 0. */
+  porCategoria: Partial<Record<Categoria, number>>;
+  /** Só abertas; remotas não têm cidade. */
+  porModelo: { presencial: number; hibrido: number };
+};
 
 export type FaixaCalor = 0 | 1 | 2 | 3 | 4;
 
@@ -43,13 +54,23 @@ export function calcularPorUf(vagas: readonly VagaNacional[]): Record<Uf, Agrega
   return resultado;
 }
 
+/** Cidades com ao menos uma vaga presencial/híbrida (aberta ou encerrada). */
 export function calcularPorCidade(vagas: readonly VagaNacional[]) {
   const mapa = new Map<string, AgregadoCidade>();
   for (const v of vagas) {
-    if (v.status !== "aberta" || !v.cidadeId) continue;
-    const ag = mapa.get(v.cidadeId) ?? { cidadeId: v.cidadeId, uf: v.uf, abertas: 0 };
+    if (v.modelo === "remoto" || !v.cidadeId) continue;
+    let ag = mapa.get(v.cidadeId);
+    if (!ag) {
+      ag = { cidadeId: v.cidadeId, uf: v.uf, abertas: 0, encerradas: 0, porCategoria: {}, porModelo: { presencial: 0, hibrido: 0 } };
+      mapa.set(v.cidadeId, ag);
+    }
+    if (v.status !== "aberta") {
+      ag.encerradas++;
+      continue;
+    }
     ag.abertas++;
-    mapa.set(v.cidadeId, ag);
+    ag.porModelo[v.modelo]++;
+    ag.porCategoria[v.categoria] = (ag.porCategoria[v.categoria] ?? 0) + 1;
   }
   return mapa;
 }
@@ -80,6 +101,16 @@ export const AGREGADO_REMOTO = calcularRemoto(vagasBrasil);
 export const LIMITES_FAIXAS = calcularLimitesFaixas(AGREGADO_UF);
 export const TOTAL_ABERTAS_BRASIL =
   UFS.reduce((s, uf) => s + AGREGADO_UF[uf].abertas, 0) + AGREGADO_REMOTO.abertas;
+
+/** Cidades da UF com ao menos uma vaga: mais vagas abertas primeiro, depois nome. */
+export function cidadesDoEstado(uf: Uf): Cidade[] {
+  return cidades
+    .filter((c) => c.uf === uf && AGREGADO_CIDADE.has(c.id))
+    .sort(
+      (a, b) =>
+        AGREGADO_CIDADE.get(b.id)!.abertas - AGREGADO_CIDADE.get(a.id)!.abertas || a.nome.localeCompare(b.nome, "pt-BR"),
+    );
+}
 
 export const faixaCalor = (uf: Uf) => faixaDe(AGREGADO_UF[uf].abertas, LIMITES_FAIXAS);
 

@@ -59,4 +59,15 @@ describe("preferências salvas", () => {
     usePerfilStore.getState().definirCidade("inventada-zz");
     expect(usePerfilStore.getState().cidadeId).toBeNull();
   });
+
+  it("cidade em foco não é salva nem restaurada", async () => {
+    useMapaStore.getState().focarCidade("anapolis-go");
+    const salvo = JSON.parse(armazenado.get("jcg:mapa") ?? "{}");
+    expect(salvo.state).not.toHaveProperty("cidadeEmFoco");
+
+    salvar("jcg:mapa", { modo: "luzes", cidadeEmFoco: "goiania-go" });
+    useMapaStore.setState({ cidadeEmFoco: null });
+    await useMapaStore.persist.rehydrate();
+    expect(useMapaStore.getState().cidadeEmFoco).toBeNull();
+  });
 });

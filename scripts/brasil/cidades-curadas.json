@@ -120,5 +120,10 @@
   {"ibge": 3529005, "porte": "pequena"},
   {"ibge": 1721000, "porte": "capital"},
   {"ibge": 1702109, "porte": "media"},
-  {"ibge": 1709500, "porte": "pequena"}
+  {"ibge": 1709500, "porte": "pequena"},
+  {"nome": "Taguatinga", "uf": "DF", "lat": -15.8339, "lon": -48.0564, "porte": "grande"},
+  {"nome": "Ceilândia", "uf": "DF", "lat": -15.8192, "lon": -48.1083, "porte": "grande"},
+  {"nome": "Águas Claras", "uf": "DF", "lat": -15.8394, "lon": -48.0275, "porte": "media"},
+  {"nome": "Gama", "uf": "DF", "lat": -16.0194, "lon": -48.0669, "porte": "media"},
+  {"nome": "Sobradinho", "uf": "DF", "lat": -15.6517, "lon": -47.79, "porte": "media"}
 ]

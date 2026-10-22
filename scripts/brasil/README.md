@@ -30,10 +30,12 @@ foi escrito.
 
 ## Lista curada
 
-`cidades-curadas.json`: `{ ibge, porte }` de 122 cidades — as 27 capitais e
-polos do interior. O porte pesa na distribuição das vagas fictícias. O DF
-tem só Brasília (o CSV não separa as regiões administrativas; a spec 002
-trata isso).
+`cidades-curadas.json`: 127 cidades — as 27 capitais e polos do interior.
+Cada item é `{ ibge, porte }` (município do CSV) ou, quando não há código
+IBGE, uma entrada manual `{ nome, uf, lat, lon, porte }` — usada para as
+regiões administrativas do DF, que viram cidades com `ibge: null`
+(`specs/002-mapa-estado/contracts/cidades-curadas.md`). O porte pesa na
+distribuição das vagas fictícias.
 
 Cidades costeiras ou na divisa que caem numa célula de mar ou da UF vizinha
 são deslocadas, **só na cena**, para a célula mais próxima da própria UF;

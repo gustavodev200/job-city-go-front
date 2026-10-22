@@ -28,6 +28,12 @@ describe("vagas nacionais (mock)", () => {
     for (const v of vagasCidadeAtual) expect(ids.has(v.id), v.id).toBe(true);
   });
 
+  it("DF tem vagas em Brasília e em regiões administrativas", () => {
+    const doDf = new Set(vagasBrasil.filter((v) => v.uf === "DF").map((v) => v.cidadeId).filter(Boolean));
+    expect(doDf.has("brasilia-df")).toBe(true);
+    expect(doDf.size).toBeGreaterThanOrEqual(2);
+  });
+
   it("ids são únicos", () => {
     expect(new Set(vagasBrasil.map((v) => v.id)).size).toBe(vagasBrasil.length);
   });

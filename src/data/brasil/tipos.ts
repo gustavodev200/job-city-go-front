@@ -5,7 +5,8 @@ export type Porte = "capital" | "grande" | "media" | "pequena";
 export type Cidade = {
   /** Slug estável `nome-uf`, ex.: "goiania-go". */
   id: string;
-  ibge: number;
+  /** Código IBGE do município; null = região administrativa do DF. */
+  ibge: number | null;
   nome: string;
   uf: Uf;
   /** Graus — distâncias reais (specs 002/004). */
